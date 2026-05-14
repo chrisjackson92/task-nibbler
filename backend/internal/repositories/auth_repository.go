@@ -1,0 +1,311 @@
+// Package repositories provides data access layers that wrap pgx queries
+// and return domain structs. This is the ONLY layer that handles pgx errors.
+// Repositories never contain business logic.
+package repositories
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// User is the domain struct for a user row.
+type User struct {
+	ID           uuid.UUID
+	Email        string
+	PasswordHash string
+	Timezone     string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+// RefreshToken is the domain struct for a refresh_tokens row.
+type RefreshToken struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	TokenHash string
+	ExpiresAt time.Time
+	RevokedAt *time.Time
+	CreatedAt time.Time
+}
+
+// PasswordResetToken is the domain struct for a password_reset_tokens row.
+type PasswordResetToken struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	TokenHash string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
+// GamificationState is the domain struct for a gamification_state row.
+type GamificationState struct {
+	ID                    uuid.UUID
+	UserID                uuid.UUID
+	StreakCount           int32
+	LastActiveDate        *time.Time
+	GraceUsedAt           *time.Time
+	HasCompletedFirstTask bool
+	TreeHealthScore       int32
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+
+// UserRepository handles all data access for the users table.
+type UserRepository struct {
+	pool *pgxpool.Pool
+}
+
+// NewUserRepository creates a new UserRepository.
+func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
+	return &UserRepository{pool: pool}
+}
+
+// Create inserts a new user and returns the created row.
+func (r *UserRepository) Create(ctx context.Context, email, passwordHash, timezone string) (*User, error) {
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO users (email, password_hash, timezone)
+		 VALUES ($1, $2, $3)
+		 RETURNING id, email, password_hash, timezone, created_at, updated_at`,
+		strings.ToLower(email), passwordHash, timezone,
+	)
+	return scanUser(row)
+}
+
+// GetByEmail retrieves a user by email address (case-insensitive lookup).
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, email, password_hash, timezone, created_at, updated_at
+		 FROM users WHERE email = $1 LIMIT 1`,
+		strings.ToLower(email),
+	)
+	return scanUser(row)
+}
+
+// GetByID retrieves a user by primary key.
+func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, email, password_hash, timezone, created_at, updated_at
+		 FROM users WHERE id = $1 LIMIT 1`,
+		id,
+	)
+	return scanUser(row)
+}
+
+// Delete deletes a user by ID. FK cascades handle all child rows.
+func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	return err
+}
+
+// UpdatePassword sets a new bcrypt password hash for the given user.
+func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, newHash string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1`,
+		id, newHash,
+	)
+	return err
+}
+
+func scanUser(row pgx.Row) (*User, error) {
+	u := &User{}
+	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Timezone, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // caller checks nil
+		}
+		return nil, err
+	}
+	return u, nil
+}
+
+// RefreshTokenRepository handles data access for the refresh_tokens table.
+type RefreshTokenRepository struct {
+	pool *pgxpool.Pool
+}
+
+// NewRefreshTokenRepository creates a new RefreshTokenRepository.
+func NewRefreshTokenRepository(pool *pgxpool.Pool) *RefreshTokenRepository {
+	return &RefreshTokenRepository{pool: pool}
+}
+
+// HashToken returns the SHA-256 hex string of the raw token.
+func HashToken(rawToken string) string {
+	h := sha256.Sum256([]byte(rawToken))
+	return hex.EncodeToString(h[:])
+}
+
+// Create stores a hashed refresh token in the database.
+func (r *RefreshTokenRepository) Create(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) (*RefreshToken, error) {
+	hash := HashToken(rawToken)
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+		 VALUES ($1, $2, $3)
+		 RETURNING id, user_id, token_hash, expires_at, revoked_at, created_at`,
+		userID, hash, expiresAt,
+	)
+	return scanRefreshToken(row)
+}
+
+// GetByRawToken retrieves a refresh token record by the raw token value.
+func (r *RefreshTokenRepository) GetByRawToken(ctx context.Context, rawToken string) (*RefreshToken, error) {
+	hash := HashToken(rawToken)
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
+		 FROM refresh_tokens WHERE token_hash = $1 LIMIT 1`,
+		hash,
+	)
+	rt, err := scanRefreshToken(row)
+	if err != nil {
+		return nil, err
+	}
+	return rt, nil
+}
+
+// RevokeByRawToken marks a specific token as revoked.
+func (r *RefreshTokenRepository) RevokeByRawToken(ctx context.Context, rawToken string) error {
+	hash := HashToken(rawToken)
+	_, err := r.pool.Exec(ctx,
+		`UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1`,
+		hash,
+	)
+	return err
+}
+
+// RevokeAllForUser revokes every active refresh token for a user (theft detection).
+func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE refresh_tokens SET revoked_at = NOW()
+		 WHERE user_id = $1 AND revoked_at IS NULL`,
+		userID,
+	)
+	return err
+}
+
+func scanRefreshToken(row pgx.Row) (*RefreshToken, error) {
+	rt := &RefreshToken{}
+	err := row.Scan(&rt.ID, &rt.UserID, &rt.TokenHash, &rt.ExpiresAt, &rt.RevokedAt, &rt.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return rt, nil
+}
+
+// PasswordResetRepository handles data access for the password_reset_tokens table.
+type PasswordResetRepository struct {
+	pool *pgxpool.Pool
+}
+
+// NewPasswordResetRepository creates a new PasswordResetRepository.
+func NewPasswordResetRepository(pool *pgxpool.Pool) *PasswordResetRepository {
+	return &PasswordResetRepository{pool: pool}
+}
+
+// InvalidatePrevious marks all unused, unexpired reset tokens for a user as used.
+// Called before issuing a new reset token so only one is active at a time.
+func (r *PasswordResetRepository) InvalidatePrevious(ctx context.Context, userID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE password_reset_tokens
+		 SET used_at = NOW()
+		 WHERE user_id = $1 AND used_at IS NULL AND expires_at > NOW()`,
+		userID,
+	)
+	return err
+}
+
+// Create stores a new hashed password reset token.
+func (r *PasswordResetRepository) Create(ctx context.Context, userID uuid.UUID, rawToken string, expiresAt time.Time) (*PasswordResetToken, error) {
+	hash := HashToken(rawToken)
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+		 VALUES ($1, $2, $3)
+		 RETURNING id, user_id, token_hash, expires_at, used_at, created_at`,
+		userID, hash, expiresAt,
+	)
+	return scanPasswordResetToken(row)
+}
+
+// GetByRawToken retrieves a password reset token by its raw (unhashed) value.
+func (r *PasswordResetRepository) GetByRawToken(ctx context.Context, rawToken string) (*PasswordResetToken, error) {
+	hash := HashToken(rawToken)
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, user_id, token_hash, expires_at, used_at, created_at
+		 FROM password_reset_tokens WHERE token_hash = $1 LIMIT 1`,
+		hash,
+	)
+	prt, err := scanPasswordResetToken(row)
+	if err != nil {
+		return nil, err
+	}
+	return prt, nil
+}
+
+// MarkUsed sets used_at on a password reset token to prevent reuse.
+func (r *PasswordResetRepository) MarkUsed(ctx context.Context, rawToken string) error {
+	hash := HashToken(rawToken)
+	_, err := r.pool.Exec(ctx,
+		`UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1`,
+		hash,
+	)
+	return err
+}
+
+func scanPasswordResetToken(row pgx.Row) (*PasswordResetToken, error) {
+	prt := &PasswordResetToken{}
+	err := row.Scan(&prt.ID, &prt.UserID, &prt.TokenHash, &prt.ExpiresAt, &prt.UsedAt, &prt.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return prt, nil
+}
+
+// GamificationRepository handles data access for the gamification_state table.
+type GamificationRepository struct {
+	pool *pgxpool.Pool
+}
+
+// NewGamificationRepository creates a new GamificationRepository.
+func NewGamificationRepository(pool *pgxpool.Pool) *GamificationRepository {
+	return &GamificationRepository{pool: pool}
+}
+
+// Create seeds the initial gamification state for a new user (tree_health=50, WELCOME state).
+func (r *GamificationRepository) Create(ctx context.Context, userID uuid.UUID) (*GamificationState, error) {
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO gamification_state (user_id, streak_count, has_completed_first_task, tree_health_score)
+		 VALUES ($1, 0, false, 50)
+		 RETURNING id, user_id, streak_count, last_active_date, grace_used_at,
+		           has_completed_first_task, tree_health_score, created_at, updated_at`,
+		userID,
+	)
+	return scanGamificationState(row)
+}
+
+func scanGamificationState(row pgx.Row) (*GamificationState, error) {
+	gs := &GamificationState{}
+	err := row.Scan(
+		&gs.ID, &gs.UserID, &gs.StreakCount, &gs.LastActiveDate, &gs.GraceUsedAt,
+		&gs.HasCompletedFirstTask, &gs.TreeHealthScore, &gs.CreatedAt, &gs.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return gs, nil
+}

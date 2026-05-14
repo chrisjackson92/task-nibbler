@@ -41,22 +41,30 @@ import (
 const version = "1.0.0"
 
 func main() {
-	// Configure structured JSON logging
-	level := slog.LevelInfo
-	cfg := config.Load()
-	if cfg.LogLevel == "debug" {
-		level = slog.LevelDebug
-	}
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
-
-	// Handle migration subcommand
+	// Handle migration subcommand FIRST — before config.Load().
+	// The migrate path only needs DATABASE_URL; loading the full config here
+	// would fatal on missing secrets (RESEND_API_KEY etc.) during fly deploy
+	// release_command, when only the DB connection is needed.
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		if err := runMigrations(cfg.DatabaseURL); err != nil {
+		databaseURL := os.Getenv("DATABASE_URL")
+		if databaseURL == "" {
+			log.Fatal("FATAL: DATABASE_URL is required for migrate")
+		}
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+		if err := runMigrations(databaseURL); err != nil {
 			log.Fatalf("migration failed: %v", err)
 		}
 		slog.Info("migrations completed successfully")
 		return
 	}
+
+	// Full config load for normal server startup
+	cfg := config.Load()
+	level := slog.LevelInfo
+	if cfg.LogLevel == "debug" {
+		level = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
 
 	// Setup database pool
 	pool := setupDatabase(cfg.DatabaseURL)

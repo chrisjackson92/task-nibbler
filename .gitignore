@@ -1,0 +1,50 @@
+# ─── Environment & Secrets ────────────────────────────────────────────────────
+.env
+.env.*
+*.env
+!*.env.example
+
+# ─── Go (backend/) ────────────────────────────────────────────────────────────
+backend/bin/
+backend/tmp/
+backend/*.exe
+backend/coverage.out
+backend/coverage.html
+backend/vendor/
+
+# ─── Flutter (mobile/) ────────────────────────────────────────────────────────
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/key.properties
+mobile/android/app/google-services.json
+mobile/ios/GoogleService-Info.plist
+mobile/coverage/
+
+# Generated code (regenerated from openapi.yaml — checked in intentionally)
+# mobile/lib/core/api/generated/ is committed
+
+# ─── Rive Assets (binary — committed when available) ──────────────────────────
+# mobile/assets/animations/*.riv — committed when Rive files are ready
+
+# ─── OS & Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

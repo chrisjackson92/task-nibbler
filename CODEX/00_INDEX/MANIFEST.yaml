@@ -1,0 +1,688 @@
+# ============================================================================
+# MANIFEST.yaml — Machine-Readable Document Registry
+# ============================================================================
+#
+# PURPOSE: This is the agent's map. An AI agent given any task can read this
+# single file, filter by tags/status/type/agents field, and locate exactly the
+# docs it needs — no directory crawling required.
+#
+# USAGE (agent):
+#   1. Parse this file
+#   2. Filter documents by relevant tags, type, or agents field
+#   3. Read only the docs that match your task
+#
+# USAGE (human with yq):
+#   yq '.documents[] | select(.tags[] == "testing")' MANIFEST.yaml
+#   yq '.documents[] | select(.status == "APPROVED")' MANIFEST.yaml
+#   yq '.documents[] | select(.agents[] == "coder")' MANIFEST.yaml
+#
+# MAINTENANCE: Update this file whenever a doc is created, moved, or archived.
+#   Run: CODEX/_scripts/manifest-gen.sh (when available) to auto-regenerate.
+# ============================================================================
+
+schema_version: "1.0.0"
+project: "Task Nibbles"
+generated: "2026-05-14"
+
+# ── Area Definitions ──────────────────────────────────────────────────────────
+areas:
+  - number: 5
+    name: PROJECT
+    slug: project
+    description: "Active project state — roadmap, sprints, backlog"
+    category_codes: [PRJ, SPR, BCK]
+
+  - number: 10
+    name: GOVERNANCE
+    slug: governance
+    description: "Standards, protocols, coding rules, architecture decisions"
+    category_codes: [GOV, ADR]
+
+  - number: 20
+    name: BLUEPRINTS
+    slug: blueprints
+    description: "Component specifications, system designs, API contracts"
+    category_codes: [BLU, API]
+
+  - number: 30
+    name: RUNBOOKS
+    slug: runbooks
+    description: "Operational how-to guides, deployment, workflows"
+    category_codes: [RUN, DEP]
+
+  - number: 40
+    name: VERIFICATION
+    slug: verification
+    description: "Test specs, QA standards, validation reports"
+    category_codes: [VER, QA]
+
+  - number: 50
+    name: DEFECTS
+    slug: defects
+    description: "Bug reports, root cause analysis, incident forensics"
+    category_codes: [DEF, RCA]
+
+  - number: 60
+    name: EVOLUTION
+    slug: evolution
+    description: "Feature specs, enhancement proposals, roadmaps"
+    category_codes: [EVO, RFC]
+
+  - number: 70
+    name: RESEARCH
+    slug: research
+    description: "Whitepapers, investigations, POCs, literature reviews"
+    category_codes: [RES, POC]
+
+  - number: 80
+    name: AGENTS
+    slug: agents
+    description: "Agent role definitions — Architect, Developer, Tester templates"
+    category_codes: [AGT]
+
+  - number: 90
+    name: ARCHIVE
+    slug: archive
+    description: "Deprecated and completed docs"
+    category_codes: [ARC]
+
+# ── Document Registry ─────────────────────────────────────────────────────────
+documents:
+
+  # ── 00_INDEX ────────────────────────────────────────────────────────────────
+  - id: IDX-000
+    path: 00_INDEX/README.md
+    title: "Documentation Master Index"
+    type: reference
+    status: APPROVED
+    tags: [index, navigation, entry-point]
+    agents: [all]
+    summary: >
+      Single entry point for all project documentation.
+      Humans browse here. Agents read MANIFEST.yaml.
+
+  - id: IDX-GETTING-STARTED
+    path: 00_INDEX/GETTING_STARTED.md
+    title: "Getting Started — New Project Initialization Guide"
+    type: how-to
+    status: APPROVED
+    tags: [governance, workflow, setup, agentic-development]
+    agents: [architect]
+    summary: >
+      Day 0 playbook for initializing CODEX for a new project. Covers fork/clone,
+      global search-and-replace, filling in PRJ-001, GOV-008 infrastructure
+      governance conversation, blueprint completion, backlog creation, agent boot
+      docs, sprint creation, and MANIFEST update.
+
+  # ── 05_PROJECT ─────────────────────────────────────────────────────────────
+  - id: PRJ-001
+    path: 05_PROJECT/PRJ-001_product_vision_and_features.md
+    title: "Task Nibbles — Product Vision & Feature Roadmap"
+    type: planning
+    status: APPROVED
+    tags: [project-management, roadmap, product-vision]
+    agents: [all]
+    summary: >
+      Fully populated product vision for Task Nibbles. Covers 8 core features,
+      4 user flows, full feature specifications, non-functional requirements,
+      3-version release roadmap (MVP → Gamification → Power Users), and all
+      locked tech stack decisions.
+
+  - id: BCK-001
+    path: 05_PROJECT/BCK-001_Developer_Backlog.md
+    title: "Developer Backlog — Task Nibbles"
+    type: planning
+    status: APPROVED
+    tags: [project-management, backlog, developer]
+    agents: [architect, coder]
+    summary: >
+      Fully populated developer backlog with 31 backend items (B-001–B-031)
+      and 28 mobile items (M-001–M-028), mapped to 6 sprints across Go
+      backend and Flutter mobile. All items trace to PRJ-001 feature specs.
+
+  - id: BCK-002
+    path: 05_PROJECT/BCK-002_Architect_Backlog.md
+    title: "Architect Agent Backlog — Task Nibbles"
+    type: planning
+    status: APPROVED
+    tags: [project-management, backlog, architect, audit]
+    agents: [architect]
+    summary: >
+      Fully populated Architect backlog with 45 items across 6 phases:
+      CODEX initialization (done), blueprint/contract creation, agent boot
+      docs, sprint document creation, per-sprint audits, and Fly.io
+      infrastructure provisioning and deployment.
+
+  # ── 10_GOVERNANCE ───────────────────────────────────────────────────────────
+  - id: GOV-001
+    path: 10_GOVERNANCE/GOV-001_DocumentationStandard.md
+    title: "Documentation Standard"
+    type: reference
+    status: APPROVED
+    tags: [documentation, standards, naming, frontmatter, templates, governance]
+    agents: [all]
+    summary: >
+      NASA/JPL-grade documentation standard. YAML frontmatter, BLUF-first
+      writing, Indexed Decimal folder structure. Enforces change control
+      (NPR 7150.2D), peer review gates, requirements traceability (DO-178C),
+      and formal retention/archival policies.
+
+  - id: GOV-002
+    path: 10_GOVERNANCE/GOV-002_TestingProtocol.md
+    title: "Testing Protocol"
+    type: reference
+    status: APPROVED
+    tags: [testing, verification, governance, standards, quality]
+    agents: [all]
+    summary: >
+      NASA/JPL-grade testing protocol. 14 test tiers from static analysis to
+      HIL. Bidirectional requirements traceability, assertion density mandates,
+      MC/DC coverage, forensic artifacts, and fail-fast execution order.
+
+  - id: GOV-003
+    path: 10_GOVERNANCE/GOV-003_CodingStandard.md
+    title: "Coding Standard"
+    type: reference
+    status: APPROVED
+    tags: [coding, standards, governance, quality, safety]
+    agents: [all]
+    summary: >
+      NASA/JPL-grade polyglot coding standard for Python, C/C++, C#/ASP.NET Core,
+      and React/TypeScript. NASA Power of 10 backbone, MISRA C:2025, DO-178C
+      code review mandates, WCAG 2.1 AA accessibility, data-testid testability,
+      static analysis profiles, and Disaster-Readability Principle.
+
+  - id: GOV-004
+    path: 10_GOVERNANCE/GOV-004_ErrorHandlingProtocol.md
+    title: "Error Handling Protocol"
+    type: reference
+    status: APPROVED
+    tags: [coding, standards, governance, quality, safety]
+    agents: [all]
+    summary: >
+      NASA/JPL-grade zero-dark-failure error handling. 13-category taxonomy,
+      severity levels with DAL mapping (DO-178C), structured error context,
+      crash artifacts, circuit breakers, correlation IDs, FMEA requirements,
+      and mandatory post-incident review.
+
+  - id: GOV-005
+    path: 10_GOVERNANCE/GOV-005_AgenticDevelopmentLifecycle.md
+    title: "Agentic Development Lifecycle"
+    type: reference
+    status: APPROVED
+    tags: [governance, standards, project-management, workflow]
+    agents: [all]
+    summary: >
+      Project lifecycle for human-Architect + AI-agent teams. Replaces
+      traditional Agile with scope-bounded sprints, emergent work items,
+      one-agent-per-branch, natural checkpoints, and human-in-the-loop
+      merge/deploy.
+
+  - id: GOV-006
+    path: 10_GOVERNANCE/GOV-006_LoggingSpecification.md
+    title: "Logging Specification"
+    type: reference
+    status: APPROVED
+    tags: [coding, standards, governance, quality, safety]
+    agents: [all]
+    summary: >
+      NASA/JPL-grade structured logging for Python, TypeScript, and C++.
+      Trace-first design for agent execution reconstruction. Database and
+      flat-file storage, forensic query patterns, correlation IDs, and
+      retention policies.
+
+  - id: GOV-007
+    path: 10_GOVERNANCE/GOV-007_AgenticProjectManagement.md
+    title: "Agentic Project Management Standard"
+    type: reference
+    status: APPROVED
+    tags: [governance, standards, project-management, workflow, agentic-development]
+    agents: [all]
+    summary: >
+      Defines CODEX as the Markdown OS for project management. Covers the
+      three-tier hierarchy (Human → Architect → Developer/Tester), document
+      taxonomy (PRJ/SPR/BLU/CON/DEF/AGT), sprint lifecycle, discrepancy
+      resolution protocol, and agent reading order.
+
+  - id: GOV-008
+    path: 10_GOVERNANCE/GOV-008_InfrastructureAndOperations.md
+    title: "Infrastructure & Operations Standard — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [governance, standards, infrastructure, deployment, operations, fly.io]
+    agents: [all]
+    summary: >
+      Fully populated infrastructure governance for Task Nibbles. Deployment on
+      Fly.io (Go Docker binary), Fly Postgres, AWS S3 presigned URLs, JWT auth.
+      Monorepo layout, environment strategy (staging + production), secrets
+      management, backup/recovery, monitoring. Mandatory Fly.io runbook references.
+
+  - id: GOV-009
+    path: 10_GOVERNANCE/GOV-009_SafeCommandExecution.md
+    title: "Safe Command Execution"
+    type: reference
+    status: APPROVED
+    tags: [governance, standards, workflow, agentic-development, operations]
+    agents: [all]
+    summary: >
+      Mandatory rules for running shell commands without hanging or deadlocking.
+      Covers: no full repo walks, GIT_TERMINAL_PROMPT=0, WaitMsBeforeAsync
+      reference table, kill-before-retry, and outcome verification over process status.
+
+  # ── 20_BLUEPRINTS ──────────────────────────────────────────────────────────
+  - id: BLU-020
+    path: 20_BLUEPRINTS/BLU-020_CODEX_System_Blueprint.md
+    title: "CODEX System Blueprint"
+    type: explanation
+    status: DRAFT
+    tags: [governance, documentation, codex, standards, architecture, workflow]
+    agents: [all]
+    summary: >
+      Explains how the CODEX documentation engine works — dual-audience design,
+      area architecture, three discovery mechanisms (MANIFEST, TAG_TAXONOMY,
+      README), governance stack, and compliance workflows. Template orientation doc.
+
+  - id: BLU-002
+    path: 20_BLUEPRINTS/BLU-002_Database_Schema.md
+    title: "Database Schema Blueprint (Template)"
+    type: reference
+    status: DRAFT
+    tags: [architecture, database, schema]
+    agents: [coder]
+    summary: >
+      Template: fill in database choice, entity model, table definitions, indexes,
+      seed data, and migration governance rules. Architect completes with Human
+      before Developer Agents begin. Once APPROVED, schema changes require Human sign-off.
+
+  - id: BLU-002-SD
+    path: 20_BLUEPRINTS/BLU-002-SD_Seed_Data_Reference.md
+    title: "Seed Data Reference (Template)"
+    type: reference
+    status: DRAFT
+    tags: [architecture, database, schema]
+    agents: [coder]
+    summary: >
+      Template: enumerate all lookup values, roles, and system data that must
+      exist before the application can function. Includes SQL and seeding order.
+      Architect populates from BLU-002 decisions.
+
+  - id: BLU-003
+    path: 20_BLUEPRINTS/BLU-003_Backend_Architecture.md
+    title: "Backend Architecture Blueprint (Template)"
+    type: reference
+    status: DRAFT
+    tags: [architecture, api]
+    agents: [coder, tester]
+    summary: >
+      Template: fill in design decisions, architecture diagram, project structure,
+      layer contracts, API route map, auth strategy, testing strategy, and config
+      variables. Architect completes with Human before backlog creation.
+
+  - id: BLU-004
+    path: 20_BLUEPRINTS/BLU-004_Frontend_Architecture.md
+    title: "Frontend Architecture Blueprint (Template)"
+    type: reference
+    status: DRAFT
+    tags: [architecture, api]
+    agents: [coder, tester]
+    summary: >
+      Template: fill in framework choice, state management, API client strategy,
+      component patterns, routing, theming, error handling, and testing strategy.
+      Architect completes with Human before backlog creation.
+
+  - id: CON-001
+    path: 20_BLUEPRINTS/CON-001_Transport_Contract.md
+    title: "Transport Contract (Template)"
+    type: reference
+    status: DRAFT
+    tags: [architecture, contract, api]
+    agents: [coder, tester]
+    summary: >
+      Template: define service endpoints, auth token strategy, error response
+      format (RFC 7807 or equivalent), CORS policy, content types, rate limiting,
+      and request/response conventions. Both developers implement their side.
+
+  - id: CON-002
+    path: 20_BLUEPRINTS/CON-002_API_Contract.md
+    title: "API Contract (Template)"
+    type: reference
+    status: DRAFT
+    tags: [architecture, contract, api]
+    agents: [coder, tester]
+    summary: >
+      Template: define every route, request/response schema, authorization rules,
+      and DTO shapes. Backend implements; frontend calls only routes listed here.
+      Changes require EVO- doc and Human approval.
+
+  # ── 30_RUNBOOKS ────────────────────────────────────────────────────────────
+
+  - id: RUN-001
+    path: 30_RUNBOOKS/RUN-001_Flyio_Platform_and_Development.md
+    title: "Fly.io — Platform Overview & Local Development Guide"
+    type: how-to
+    status: APPROVED
+    tags: [deployment, operations, learning, fly.io, docker, go, postgres]
+    agents: [all]
+    mandatory: true
+    summary: >
+      MANDATORY learning document. Covers Fly.io core concepts (Apps, Machines,
+      Regions, Anycast), fly.toml configuration, secrets management (fly secrets set),
+      local development workflow, PostgreSQL on Fly.io, multi-stage Go Dockerfile,
+      structured logging, and cost model. Read before any deployment task.
+
+  - id: RUN-002
+    path: 30_RUNBOOKS/RUN-002_Flyio_Deployment_Playbook.md
+    title: "Fly.io — Deployment Playbook"
+    type: how-to
+    status: APPROVED
+    tags: [deployment, operations, learning, fly.io, docker, ci-cd, postgres]
+    agents: [all]
+    mandatory: true
+    summary: >
+      MANDATORY deployment playbook. Step-by-step first deploy checklist, deploy
+      pipeline internals, environment promotion (staging → prod), safe DB migration
+      patterns, rollback procedure (fly releases rollback), custom domain + TLS,
+      GitHub Actions CI/CD pipeline, and cost control via auto-stop machines.
+
+  # ── 40_VERIFICATION ────────────────────────────────────────────────────────
+  # (empty — add project-specific verification docs as the project grows)
+
+  # ── 50_DEFECTS ─────────────────────────────────────────────────────────────
+  # (empty — add defect reports as the project grows)
+
+  # ── 60_EVOLUTION ───────────────────────────────────────────────────────────
+  # (empty — add evolution/feature proposals as the project grows)
+
+  # ── 70_RESEARCH ────────────────────────────────────────────────────────────
+  # (empty — add research papers as the project grows)
+
+  # ── 80_AGENTS ──────────────────────────────────────────────────────────────
+  - id: AGT-001
+    path: 80_AGENTS/AGT-001_Architect_Agent.md
+    title: "Architect Agent — Role Definition"
+    type: reference
+    status: APPROVED
+    tags: [governance, agent-instructions, project-management, agentic-development, workflow]
+    agents: [architect]
+    summary: >
+      Defines the Architect Agent role: owns CODEX, manages Developer and Tester
+      agents, audits code against contracts, resolves discrepancies with Human.
+      Does not write feature code. Includes reading order and primary workflows.
+
+  - id: AGT-002
+    path: 80_AGENTS/AGT-002_Developer_Agent.md
+    title: "Developer Agent — Role Definition"
+    type: reference
+    status: APPROVED
+    tags: [governance, agent-instructions, project-management, agentic-development, coding]
+    agents: [coder]
+    summary: >
+      Defines the Developer Agent role: executes sprint tasks against blueprints
+      and contracts, proposes contract changes via EVO- docs, reports blockers
+      upstream. Technology-stack agnostic.
+
+  - id: AGT-003
+    path: 80_AGENTS/AGT-003_Tester_Agent.md
+    title: "Tester Agent — Role Definition"
+    type: reference
+    status: APPROVED
+    tags: [governance, agent-instructions, project-management, agentic-development, testing, verification]
+    agents: [tester]
+    summary: >
+      Defines the Tester Agent role: independently verifies developer output
+      against contracts, files DEF- defect reports to Architect, issues
+      pass/fail verdicts for sprint closure. No direct communication with Developer.
+
+  - id: AGT-002-BE
+    path: 80_AGENTS/AGT-002-BE_Backend_Developer_Agent.md
+    title: "Backend Developer Agent — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [agent-instructions, agentic-development, backend, go, gin, project-specific]
+    agents: [coder]
+    mandatory: false
+    summary: >
+      Project-specific boot document for the Backend Developer Agent. Covers
+      mandatory reading order, Go + Gin tech stack, layer contract rules,
+      error handling, JWT auth patterns, migration governance, local dev setup,
+      git workflow, and escalation protocol.
+
+  - id: AGT-002-MB
+    path: 80_AGENTS/AGT-002-MB_Mobile_Developer_Agent.md
+    title: "Mobile Developer Agent — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [agent-instructions, agentic-development, mobile, flutter, dart, project-specific]
+    agents: [coder]
+    mandatory: false
+    summary: >
+      Project-specific boot document for the Mobile Developer Agent. Covers
+      mandatory reading order, Flutter + BLoC standards, Dio interceptor rules,
+      Hive cache policy, Rive animation dependency flag, deep link setup,
+      FVM environment, and git workflow.
+
+# ── Blueprint Documents ───────────────────────────────────────────────────────
+
+  - id: BLU-002
+    path: 20_BLUEPRINTS/BLU-002_Database_Schema.md
+    title: "Database Schema Blueprint — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [architecture, database, schema, postgres]
+    agents: [coder, tester]
+    summary: >
+      Complete PostgreSQL schema for all 10 tables (users, refresh_tokens,
+      password_reset_tokens, recurring_rules, tasks, task_attachments,
+      gamification_state, badges, user_badges, device_tokens). Includes enum
+      definitions, all indexes, migration ordering, and sqlc configuration.
+
+  - id: BLU-002-SD
+    path: 20_BLUEPRINTS/BLU-002-SD_Seed_Data_Reference.md
+    title: "Seed Data Reference — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [architecture, database, seed-data, gamification]
+    agents: [coder, tester]
+    summary: >
+      All seed data for Task Nibbles: 14 badge INSERT statements with goose
+      Up/Down, badge award trigger reference table, default gamification state
+      on registration, and all enum value reference tables.
+
+  - id: BLU-003
+    path: 20_BLUEPRINTS/BLU-003_Backend_Architecture.md
+    title: "Backend Architecture Blueprint — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [architecture, api, go, gin, backend]
+    agents: [coder, tester]
+    summary: >
+      Complete Go + Gin backend architecture: project directory structure,
+      3-layer contract, middleware chain, all 22 API routes mapped to handlers,
+      JWT auth strategy, S3 Pattern A flow, Resend email integration, 5 nightly
+      cron jobs, GOV-004 error codes, slog structured logging, and testing strategy.
+
+  - id: BLU-004
+    path: 20_BLUEPRINTS/BLU-004_Frontend_Architecture.md
+    title: "Mobile Architecture Blueprint — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [architecture, flutter, mobile, dart]
+    agents: [coder, tester]
+    summary: >
+      Complete Flutter mobile architecture: feature-first folder structure,
+      BLoC vs Cubit decision matrix, Dio silent-refresh interceptor, Hive
+      offline cache policy, Rive animation state machine specs, go_router
+      navigation with deep link configuration, Material 3 theming, and
+      testing strategy.
+
+# ── Contract Documents ────────────────────────────────────────────────────────
+
+  - id: CON-001
+    path: 30_CONTRACTS/CON-001_Transport_Contract.md
+    title: "Transport Contract — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [api, contract, transport, auth, error-handling]
+    agents: [coder, tester]
+    summary: >
+      Transport-level agreement between the Go API and Flutter client. Covers
+      base URLs (local/staging/prod), JWT auth header, request format, success
+      and error response envelopes, full error code reference (20 codes),
+      HTTP status conventions, rate limiting headers, pagination, file upload
+      convention (Pattern A — no multipart to API), CORS, and versioning policy.
+
+  - id: CON-002
+    path: 30_CONTRACTS/CON-002_API_Contract.md
+    title: "API Contract — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [api, contract, routes, schema]
+    agents: [coder, tester]
+    summary: >
+      Complete request/response schemas for all 22 API routes. Auth (7 routes),
+      health (1), tasks (7 including complete + sort-order), attachments (5),
+      gamification (2). Includes gamification_delta response on task completion,
+      all 14 badges in GET /gamification/badges, and route summary table
+      mapped to BCK-001 backlog items.
+
+# ── Sprint Documents ──────────────────────────────────────────────────────────
+
+  - id: SPR-001-BE
+    path: 05_PROJECT/SPR-001-BE_Backend_Scaffold_and_Auth.md
+    title: "Sprint 1 — Backend Scaffold & Auth"
+    type: sprint
+    status: READY
+    tags: [sprint, backend, auth, scaffold]
+    agents: [coder]
+    summary: >
+      Backend Sprint 1: Go project scaffold, Gin router, PostgreSQL (pgx),
+      sqlc + goose, all 7 auth endpoints, JWT middleware, rate limiting,
+      Resend password reset, DELETE /auth/account, and Fly.io staging deploy.
+
+  - id: SPR-001-MB
+    path: 05_PROJECT/SPR-001-MB_Mobile_Scaffold_and_Auth.md
+    title: "Sprint 1 — Mobile Scaffold & Auth"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, mobile, auth, scaffold]
+    agents: [coder]
+    summary: >
+      Mobile Sprint 1: Flutter project init, Dio API client, OpenAPI codegen,
+      AuthBloc, flutter_secure_storage, silent refresh interceptor, login/register/
+      forgot-password screens, settings screen, Hive init, offline banner,
+      gamification hero placeholder.
+
+  - id: SPR-002-BE
+    path: 05_PROJECT/SPR-002-BE_Task_CRUD_Backend.md
+    title: "Sprint 2 — Task CRUD Backend"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, backend, tasks, crud]
+    agents: [coder]
+    summary: >
+      Backend Sprint 2: tasks table migration, full CRUD endpoints, status model
+      (PENDING/COMPLETED/CANCELLED), OVERDUE calculated field, filter/sort query
+      params, sort-order reordering, POST /tasks/:id/complete with gamification_delta,
+      and gamification_state row creation on register.
+
+  - id: SPR-002-MB
+    path: 05_PROJECT/SPR-002-MB_Task_UI_Mobile.md
+    title: "Sprint 2 — Task UI Mobile"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, mobile, tasks, ui]
+    agents: [coder]
+    summary: >
+      Mobile Sprint 2: task list screen with filter/sort bottom sheet,
+      drag-to-reorder, task detail, create/edit form, complete button,
+      cancel action, overdue chip, Hive offline fallback, and gamification
+      hero delta refresh after completion.
+
+  - id: SPR-003-BE
+    path: 05_PROJECT/SPR-003-BE_Attachments_Backend.md
+    title: "Sprint 3 — Attachments Backend"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, backend, attachments, s3]
+    agents: [coder]
+    summary: >
+      Backend Sprint 3: S3 client setup, Pattern A pre-register + confirm flow,
+      presigned PUT (15min) and GET (60min) URLs, MIME/size validation, attachment
+      limit (10/task), DELETE with synchronous S3 removal, nightly orphan cleanup cron.
+
+  - id: SPR-003-MB
+    path: 05_PROJECT/SPR-003-MB_Attachments_Mobile.md
+    title: "Sprint 3 — Attachments Mobile"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, mobile, attachments, s3]
+    agents: [coder]
+    summary: >
+      Mobile Sprint 3: image/video picker, Pattern A upload state machine,
+      direct S3 PUT progress bar, attachment list thumbnails, full-screen
+      image viewer (InteractiveViewer), video playback, undo-snackbar delete.
+
+  - id: SPR-004-BE
+    path: 05_PROJECT/SPR-004-BE_Gamification_Backend.md
+    title: "Sprint 4 — Gamification Backend"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, backend, gamification, badges, cron]
+    agents: [coder]
+    summary: >
+      Backend Sprint 4: full gamification engine — streak/grace day logic,
+      tree health scoring, WELCOME state, overdue -3 nightly penalty, badge
+      award engine (all 14 badges, idempotent), badges/user_badges migrations,
+      0012 seed migration, GET /gamification/state + /badges endpoints.
+
+  - id: SPR-004-MB
+    path: 05_PROJECT/SPR-004-MB_Gamification_Mobile.md
+    title: "Sprint 4 — Gamification Mobile"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, mobile, gamification, rive, badges]
+    agents: [coder]
+    summary: >
+      Mobile Sprint 4: live gamification data via GamificationCubit, Rive sprite
+      (4 states) and tree (4 states) animations, collapsible SliverAppBar hero
+      section, gamification detail screen, badge shelf grid (14 badges),
+      badge award celebration overlay, grace ⚡ indicator.
+
+  - id: SPR-005-BE
+    path: 05_PROJECT/SPR-005-BE_Recurring_Tasks_Backend.md
+    title: "Sprint 5 — Recurring Tasks Backend"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, backend, recurring, rrule, cron]
+    agents: [coder]
+    summary: >
+      Backend Sprint 5: RRULE storage in recurring_rules table, timezone-aware
+      nightly expansion cron, idempotent instance creation via unique index,
+      this-only vs. this-and-future edit/delete scope with ?scope= param,
+      RRULE validation via teambition/rrule-go.
+
+  - id: SPR-005-MB
+    path: 05_PROJECT/SPR-005-MB_Recurring_Tasks_Mobile.md
+    title: "Sprint 5 — Recurring Tasks Mobile"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, mobile, recurring, rrule]
+    agents: [coder]
+    summary: >
+      Mobile Sprint 5: recurring toggle, RRULE frequency picker (Daily/Weekly/Custom),
+      edit-scope dialog (this instance vs. all future), scope param on PATCH/DELETE,
+      and 🔁 recurring indicator chip in task list.
+
+  - id: SPR-006-OPS
+    path: 05_PROJECT/SPR-006-OPS_Flyio_Deployment.md
+    title: "Sprint 6 — Fly.io Deployment & CI/CD"
+    type: sprint
+    status: BLOCKED
+    tags: [sprint, ops, deployment, fly-io, ci-cd, docker]
+    agents: [coder]
+    summary: >
+      OPS Sprint 6: multi-stage Dockerfile, fly.toml for staging + production,
+      release_command migration pattern, GitHub Actions workflows for auto-deploy
+      to staging (develop push) and production (main + Human approval gate),
+      all secrets setup, custom domain api.tasknibbles.com + TLS, rollback testing.
+

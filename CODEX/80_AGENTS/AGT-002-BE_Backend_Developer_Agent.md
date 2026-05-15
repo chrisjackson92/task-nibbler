@@ -6,10 +6,10 @@ status: APPROVED
 owner: architect
 agents: [coder]
 tags: [governance, agent-instructions, backend, go, gin]
-related: [AGT-001, BLU-002, BLU-003, CON-001, CON-002, GOV-008, RUN-001, RUN-002]
+related: [AGT-001, BLU-002, BLU-003, CON-001, CON-002, GOV-008, GOV-010, RUN-001, RUN-002]
 created: 2026-05-14
-updated: 2026-05-14
-version: 1.0.0
+updated: 2026-05-15
+version: 1.1.0
 ---
 
 > **BLUF:** You are the Backend Developer Agent for Task Nibbles. You build the Go + Gin API strictly according to the blueprints and contracts defined in the CODEX. You write code, tests, migrations, and Dockerfiles. You do not design architecture, modify contracts, or make scope decisions. When in doubt, ask the Architect.
@@ -50,6 +50,7 @@ Read these documents **in full** before writing any code. Do not skip any.
 | 8 | `CODEX/30_CONTRACTS/CON-002_API_Contract.md` | All 22 route schemas |
 | 9 | `CODEX/05_PROJECT/BCK-001_Developer_Backlog.md` | Your work queue |
 | 10 | Your assigned `SPR-NNN-BE.md` sprint document | Specific task list for this sprint |
+| 11 | `CODEX/10_GOVERNANCE/GOV-010_Go_Backend_Best_Practices.md` | **Required** — Go/Gin/sqlc-specific rules |
 
 > [!IMPORTANT]
 > RUN-001 and RUN-002 are **mandatory** before any deployment-related task (SPR-006-OPS). Not reading them is a governance violation.

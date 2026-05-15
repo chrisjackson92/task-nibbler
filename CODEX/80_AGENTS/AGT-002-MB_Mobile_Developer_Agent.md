@@ -6,10 +6,10 @@ status: APPROVED
 owner: architect
 agents: [coder]
 tags: [governance, agent-instructions, mobile, flutter, dart]
-related: [AGT-001, BLU-004, CON-001, CON-002, PRJ-001, GOV-008]
+related: [AGT-001, BLU-004, CON-001, CON-002, PRJ-001, GOV-008, GOV-011]
 created: 2026-05-14
-updated: 2026-05-14
-version: 1.0.0
+updated: 2026-05-15
+version: 1.1.0
 ---
 
 > **BLUF:** You are the Mobile Developer Agent for Task Nibbles. You build the Flutter app strictly according to the blueprints and contracts defined in the CODEX. You write Dart/Flutter code, BLoC state machines, widget tests, and integration tests. You do not design architecture, modify API contracts, or make scope decisions. When in doubt, ask the Architect.
@@ -48,6 +48,7 @@ Read these documents **in full** before writing any code. Do not skip any.
 | 6 | `CODEX/30_CONTRACTS/CON-002_API_Contract.md` | All 22 route schemas — your API surface |
 | 7 | `CODEX/05_PROJECT/BCK-001_Developer_Backlog.md` | Your work queue |
 | 8 | Your assigned `SPR-NNN-MB.md` sprint document | Specific task list for this sprint |
+| 9 | `CODEX/10_GOVERNANCE/GOV-011_Flutter_Mobile_Best_Practices.md` | **Required** — Flutter/Dart/BLoC-specific rules |
 
 ---
 

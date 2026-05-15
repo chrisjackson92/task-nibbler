@@ -110,5 +110,108 @@ void main() {
         ),
       ],
     );
+  }); // end group 'TaskFormCubit — submit (create)'
+
+  group('TaskFormCubit — recurring (create, M-036)', () {
+    blocTest<TaskFormCubit, TaskFormState>(
+      'submit RECURRING without rrule → TaskFormError with isRRuleError=true',
+      build: buildCubit,
+      act: (cubit) => cubit.submit(
+        const CreateTaskRequest(
+          title: 'Daily standup',
+          priority: TaskPriority.medium,
+          taskType: TaskType.recurring,
+          // rrule deliberately omitted
+        ),
+      ),
+      expect: () => [
+        isA<TaskFormError>().having(
+          (e) => e.isRRuleError,
+          'isRRuleError',
+          isTrue,
+        ),
+      ],
+    );
+
+    blocTest<TaskFormCubit, TaskFormState>(
+      'submit RECURRING with rrule → [Loading, Success]',
+      build: buildCubit,
+      setUp: () {
+        when(() => mockRepo.createTask(any()))
+            .thenAnswer((_) async => _makeTask());
+      },
+      act: (cubit) => cubit.submit(
+        const CreateTaskRequest(
+          title: 'Daily standup',
+          priority: TaskPriority.medium,
+          taskType: TaskType.recurring,
+          rrule: 'FREQ=DAILY',
+        ),
+      ),
+      expect: () => [
+        isA<TaskFormLoading>(),
+        isA<TaskFormSuccess>(),
+      ],
+    );
+  });
+
+  // ── Scope threading (M-036 / M-038) ─────────────────────────────────────────
+
+  group('TaskFormCubit — scope (edit, M-038)', () {
+    blocTest<TaskFormCubit, TaskFormState>(
+      'scope=thisOnly → updateTask called with this_only param',
+      build: buildCubit,
+      setUp: () {
+        when(() => mockRepo.updateTask(
+              any(),
+              any(),
+              scope: RecurringEditScope.thisOnly,
+            )).thenAnswer((_) async => _makeTask());
+      },
+      act: (cubit) {
+        cubit.setScope(RecurringEditScope.thisOnly);
+        return cubit.submitEdit(
+          'task-1',
+          const UpdateTaskRequest(title: 'Updated title'),
+        );
+      },
+      expect: () => [
+        isA<TaskFormLoading>(),
+        isA<TaskFormSuccess>(),
+      ],
+      verify: (_) => verify(() => mockRepo.updateTask(
+            'task-1',
+            any(),
+            scope: RecurringEditScope.thisOnly,
+          )).called(1),
+    );
+
+    blocTest<TaskFormCubit, TaskFormState>(
+      'scope=thisAndFuture → updateTask called with this_and_future param',
+      build: buildCubit,
+      setUp: () {
+        when(() => mockRepo.updateTask(
+              any(),
+              any(),
+              scope: RecurringEditScope.thisAndFuture,
+            )).thenAnswer((_) async => _makeTask());
+      },
+      act: (cubit) {
+        cubit.setScope(RecurringEditScope.thisAndFuture);
+        return cubit.submitEdit(
+          'task-1',
+          const UpdateTaskRequest(title: 'Updated title'),
+        );
+      },
+      expect: () => [
+        isA<TaskFormLoading>(),
+        isA<TaskFormSuccess>(),
+      ],
+      verify: (_) => verify(() => mockRepo.updateTask(
+            'task-1',
+            any(),
+            scope: RecurringEditScope.thisAndFuture,
+          )).called(1),
+    );
   });
 }

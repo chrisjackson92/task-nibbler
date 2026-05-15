@@ -7,6 +7,7 @@ import '../../../core/api/models/task_models.dart';
 import '../../../core/widgets/loading_overlay.dart';
 import '../bloc/task_form_cubit.dart';
 import '../bloc/task_list_bloc.dart';
+import 'widgets/recurrence_schedule_picker.dart';
 
 /// Create/Edit task form screen (M-017).
 ///
@@ -32,6 +33,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   late TaskType _taskType;
   DateTime? _startAt;
   DateTime? _endAt;
+  String? _rrule;               // current RRULE value from RecurrenceSchedulePicker
+  String? _rruleError;          // inline error text from INVALID_RRULE API error
 
   @override
   void initState() {
@@ -44,6 +47,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     _taskType = t?.taskType ?? TaskType.oneTime;
     _startAt = t?.startAt;
     _endAt = t?.endAt;
+    // Pre-fill rrule if editing a recurring task
+    // (note: UpdateTaskRequest doesn't return rrule from API, so default null)
+    _rrule = null;
   }
 
   @override
@@ -65,12 +71,17 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           context.read<TaskListBloc>().add(const RefreshTasks());
           context.pop();
         } else if (state is TaskFormError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: theme.colorScheme.error,
-            ),
-          );
+          if (state.isRRuleError) {
+            // Show inline error on RRULE field instead of snackbar.
+            setState(() => _rruleError = state.message);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: theme.colorScheme.error,
+              ),
+            );
+          }
         }
       },
       builder: (context, state) {
@@ -147,20 +158,17 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   _buildTypeSelector(),
 
                   if (_taskType == TaskType.recurring) ...[
+                    const SizedBox(height: 12),
+                    Text('Recurrence Schedule *', style: theme.textTheme.labelLarge),
                     const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer
-                            .withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '📅 Recurring rule (RRULE) configuration will be available in Sprint 5.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer,
-                        ),
-                      ),
+                    RecurrenceSchedulePicker(
+                      key: const Key('task_form_recurrence_picker'),
+                      initialRRule: _rrule,
+                      errorText: _rruleError,
+                      onRRuleChanged: (v) => setState(() {
+                        _rrule = v;
+                        if (_rruleError != null) _rruleError = null;
+                      }),
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -243,6 +251,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           taskType: _taskType,
           startAt: _startAt,
           endAt: _endAt,
+          rrule: _taskType == TaskType.recurring ? _rrule : null,
         ),
       );
     } else {
@@ -255,6 +264,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           taskType: _taskType,
           startAt: _startAt,
           endAt: _endAt,
+          rrule: _taskType == TaskType.recurring ? _rrule : null,
         ),
       );
     }

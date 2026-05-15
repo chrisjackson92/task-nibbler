@@ -5,9 +5,11 @@ import 'package:intl/intl.dart';
 
 import '../../../core/api/models/task_models.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/router/app_router.dart';
 import '../../attachments/bloc/attachment_cubit.dart';
 import '../../attachments/ui/widgets/attachment_list_widget.dart';
 import '../bloc/task_list_bloc.dart';
+import 'widgets/recurring_edit_scope_dialog.dart';
 
 final _dateFormat = DateFormat('MMM d, y • h:mm a');
 
@@ -35,7 +37,7 @@ class TaskDetailScreen extends StatelessWidget {
             IconButton(
               key: const Key('task_detail_edit_button'),
               icon: const Icon(Icons.edit_outlined),
-              onPressed: () => context.push('/tasks/${task.id}/edit', extra: task),
+              onPressed: () => _onEditPressed(context),
             ),
         ],
       ),
@@ -138,7 +140,46 @@ class TaskDetailScreen extends StatelessWidget {
           : null,
     );
   }
+
+  /// Navigates to the edit form.
+  /// For RECURRING tasks that are NOT detached, shows the scope dialog first
+  /// (SPR-005-MB §Architect Checklist: "Edit scope dialog shown for ALL RECURRING tasks").
+  Future<void> _onEditPressed(BuildContext context) async {
+    if (!context.mounted) return;
+
+    RecurringEditScope? scope;
+
+    // Only show scope dialog for recurring instances that haven't been
+    // detached already (detached = already a one-off edit).
+    if (task.taskType == TaskType.recurring && !task.isDetached) {
+      scope = await RecurringEditScopeDialog.show(context);
+      if (scope == null) return; // user cancelled — abort edit
+    }
+
+    if (!context.mounted) return;
+
+    // Set scope on cubit before routing to form screen.
+    final cubitScope = scope;
+    if (cubitScope != null) {
+      Injection.instance.taskListBloc; // keep alive
+      // The TaskFormCubit is created fresh in the route — pass scope via extra
+      // using a _EditExtra wrapper so the form builder can read it.
+    }
+
+    context.push(
+      AppRoutes.taskEdit.replaceFirst(':id', task.id),
+      extra: TaskEditExtra(task: task, scope: scope),
+    );
+  }
 }
+
+/// Carries task + chosen scope to the edit route.
+class TaskEditExtra {
+  const TaskEditExtra({required this.task, this.scope});
+  final Task task;
+  final RecurringEditScope? scope;
+}
+
 
 // ── Detail widgets ────────────────────────────────────────────────────────────
 

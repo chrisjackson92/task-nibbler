@@ -14,7 +14,7 @@ class MockGamificationRepository extends Mock
 
 // ── Test data ─────────────────────────────────────────────────────────────────
 
-final _defaultState = GamificationStateData(
+final _defaultState = const GamificationStateData(
   streakCount: 5,
   lastActiveDate: '2026-05-15',
   graceActive: false,
@@ -151,7 +151,7 @@ void main() {
       build: buildCubit,
       setUp: () {
         when(() => mockRepo.getState()).thenAnswer((_) async =>
-            GamificationStateData(
+            const GamificationStateData(
               streakCount: 0,
               lastActiveDate: null,
               graceActive: false,

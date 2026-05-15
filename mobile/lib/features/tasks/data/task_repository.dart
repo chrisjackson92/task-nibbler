@@ -69,10 +69,16 @@ class TaskRepository {
   }
 
   /// PATCH /tasks/:id — partial update.
-  Future<Task> updateTask(String id, UpdateTaskRequest request) async {
+  /// [scope] is required when updating a recurring task instance (CON-002 §3).
+  Future<Task> updateTask(
+    String id,
+    UpdateTaskRequest request, {
+    RecurringEditScope? scope,
+  }) async {
     try {
       final response = await dio.patch<Map<String, dynamic>>(
         '$_basePath/$id',
+        queryParameters: scope != null ? {'scope': scope.toApiParam()} : null,
         data: request.toJson(),
       );
       return Task.fromJson(response.data!);
@@ -82,9 +88,13 @@ class TaskRepository {
   }
 
   /// DELETE /tasks/:id — remove task.
-  Future<void> deleteTask(String id) async {
+  /// [scope] is required when deleting a recurring task instance (CON-002 §3).
+  Future<void> deleteTask(String id, {RecurringEditScope? scope}) async {
     try {
-      await dio.delete<void>('$_basePath/$id');
+      await dio.delete<void>(
+        '$_basePath/$id',
+        queryParameters: scope != null ? {'scope': scope.toApiParam()} : null,
+      );
     } on DioException catch (e) {
       throw _mapError(e);
     }

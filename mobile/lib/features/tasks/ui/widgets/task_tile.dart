@@ -111,6 +111,9 @@ class TaskTile extends StatelessWidget {
             _StatusChip(task: task),
             if (task.endAt != null) _buildDateChip(context, theme),
             if (task.attachmentCount > 0) _buildAttachmentBadge(theme),
+            // M-039: recurring task indicator
+            if (task.recurringRuleId != null && !task.isDetached)
+              _RecurringChip(),
           ],
         ),
       ],
@@ -273,6 +276,43 @@ class _StatusChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+// ── Recurring chip ────────────────────────────────────────────────────────────
+
+/// Small 🔁 chip shown on recurring task instances in the list (M-039).
+/// Not shown when `is_detached=true` (the instance was edited independently).
+class _RecurringChip extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('task_tile_recurring_chip'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '🔁',
+            style: TextStyle(fontSize: 10),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            'Recurring',
+            style: TextStyle(
+              color: theme.colorScheme.onSecondaryContainer,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

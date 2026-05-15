@@ -145,12 +145,31 @@ func (m *mockGamifSvc) OnTaskCompleted(_ context.Context, _ uuid.UUID) (*service
 	return &services.GamificationDelta{BadgesAwarded: []services.Badge{}}, nil
 }
 
+func (m *mockGamifSvc) GetState(_ context.Context, _ uuid.UUID) (*services.GamificationStateResponse, error) {
+	return &services.GamificationStateResponse{}, nil
+}
+
+func (m *mockGamifSvc) GetBadges(_ context.Context, _ uuid.UUID) ([]*services.BadgeListItem, error) {
+	return nil, nil
+}
+
+func (m *mockGamifSvc) ApplyNightlyDecay(_ context.Context, _ uuid.UUID) error { return nil }
+func (m *mockGamifSvc) ApplyOverduePenalty(_ context.Context, _ uuid.UUID, _ int) error { return nil }
+
 // errGamifSvc always returns an error — tests gamification non-fatal behaviour.
 type errGamifSvc struct{}
 
 func (e *errGamifSvc) OnTaskCompleted(_ context.Context, _ uuid.UUID) (*services.GamificationDelta, error) {
 	return nil, repositories.ErrNotFound
 }
+func (e *errGamifSvc) GetState(_ context.Context, _ uuid.UUID) (*services.GamificationStateResponse, error) {
+	return nil, nil
+}
+func (e *errGamifSvc) GetBadges(_ context.Context, _ uuid.UUID) ([]*services.BadgeListItem, error) {
+	return nil, nil
+}
+func (e *errGamifSvc) ApplyNightlyDecay(_ context.Context, _ uuid.UUID) error { return nil }
+func (e *errGamifSvc) ApplyOverduePenalty(_ context.Context, _ uuid.UUID, _ int) error { return nil }
 
 // ────────────────────────────────────────────────────────────────────────────
 // CreateTask

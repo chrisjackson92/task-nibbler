@@ -120,4 +120,3 @@ func (j *GamificationNightlyJob) Run() {
 		"penalty_errors", penaltyErr,
 	)
 }
-# CI coverage gate: 40% MVP threshold (services+jobs). Target 70% in SPR-008-HRD.

@@ -22,8 +22,10 @@ import (
 
 	"github.com/chrisjackson92/task-nibbler/backend/internal/config"
 	"github.com/chrisjackson92/task-nibbler/backend/internal/handlers"
+	"github.com/chrisjackson92/task-nibbler/backend/internal/jobs"
 	"github.com/chrisjackson92/task-nibbler/backend/internal/middleware"
 	"github.com/chrisjackson92/task-nibbler/backend/internal/repositories"
+	s3client "github.com/chrisjackson92/task-nibbler/backend/internal/s3client"
 	"github.com/chrisjackson92/task-nibbler/backend/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron/v2"
@@ -79,17 +81,31 @@ func main() {
 	passwordRepo := repositories.NewPasswordResetRepository(pool)
 	gamifRepo := repositories.NewGamificationRepository(pool)
 	taskRepo := repositories.NewTaskRepository(pool)
+	attachmentRepo := repositories.NewAttachmentRepository(pool)
+
+	// Wire S3 client (B-015)
+	s3, err := s3client.New(context.Background(), s3client.Config{
+		AccessKeyID:     cfg.AWSAccessKeyID,
+		SecretAccessKey: cfg.AWSSecretAccessKey,
+		Region:          cfg.AWSRegion,
+		Bucket:          cfg.AWSS3Bucket,
+	})
+	if err != nil {
+		log.Fatalf("FATAL: cannot create S3 client: %v", err)
+	}
 
 	// Wire services
 	emailSvc := services.NewEmailService(cfg.ResendAPIKey, cfg.ResendFromEmail, cfg.AppBaseURL)
 	authSvc := services.NewAuthService(userRepo, refreshRepo, passwordRepo, gamifRepo, emailSvc, cfg.JWTSecret, cfg.JWTRefreshSecret)
 	gamifSvc := services.NewGamificationService(gamifRepo)
 	taskSvc := services.NewTaskService(taskRepo, gamifSvc)
+	attachmentSvc := services.NewAttachmentService(attachmentRepo, s3)
 
 	// Wire handlers
 	authHandler := handlers.NewAuthHandler(authSvc)
 	healthHandler := handlers.NewHealthHandler(pool, version)
 	taskHandler := handlers.NewTaskHandler(taskSvc)
+	attachmentHandler := handlers.NewAttachmentHandler(attachmentSvc)
 
 	// Setup router
 	if cfg.IsProduction() {
@@ -130,11 +146,14 @@ func main() {
 		// Task routes (B-011, B-012, B-039, B-040, B-041)
 		tasks := api.Group("/tasks")
 		taskHandler.RegisterRoutes(tasks)
+
+		// Attachment routes (B-015, B-042–B-045)
+		attachments := tasks.Group("/:id/attachments")
+		attachmentHandler.RegisterRoutes(attachments)
 	}
 
-	// Nightly cron scheduler (B-014)
-	// Full job bodies are added in SPR-005-BE; the scheduler must boot cleanly here
-	// so future sprints can register jobs without touching main.go.
+	// Nightly cron scheduler (B-014, B-045)
+	attachmentCleanup := jobs.NewAttachmentCleanupJob(attachmentRepo, s3)
 	s, err := gocron.NewScheduler()
 	if err != nil {
 		log.Fatalf("FATAL: cannot create scheduler: %v", err)
@@ -142,7 +161,8 @@ func main() {
 	_, err = s.NewJob(
 		gocron.CronJob("5 0 * * *", false),
 		gocron.NewTask(func() {
-			slog.Info("nightly cron: tick — job bodies added in SPR-005-BE")
+			slog.Info("nightly cron: tick")
+			attachmentCleanup.Run(context.Background())
 		}),
 	)
 	if err != nil {

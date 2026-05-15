@@ -1,201 +1,259 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../gamification/bloc/gamification_cubit.dart';
-import '../../../../core/router/app_router.dart';
+import '../../../../core/api/models/gamification_models.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../gamification/bloc/gamification_cubit.dart';
 
-/// Collapsible gamification hero section shown at the top of the task list
-/// (BLU-004 §8, M-013, updated M-019).
-///
-/// Sprint 1–3: shows static values from [GamificationLoaded];
-/// Sprint 4:   Rive animation replaces the icon placeholder.
+/// Hero section displayed in the collapsible SliverAppBar (M-035).
+/// Adapts to all gamification states.
 class HeroSection extends StatelessWidget {
   const HeroSection({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<GamificationCubit, GamificationState>(
-      builder: (context, state) => GestureDetector(
-        onTap: () => context.push(AppRoutes.gamification),
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.heroGradientStart.withOpacity(0.3),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: switch (state) {
-            GamificationWelcome() => _WelcomeContent(),
-            GamificationLoaded(
-              streakCount: final streak,
-              treeHealthScore: final health,
-              graceActive: final grace,
-            ) =>
-              _LoadedContent(
-                streakCount: streak,
-                treeHealthScore: health,
-                graceActive: grace,
-              ),
-          },
+      builder: (context, state) => switch (state) {
+        GamificationInitial() ||
+        GamificationLoading() =>
+          const _HeroLoading(),
+        GamificationLoaded(gamState: final g) =>
+          _HeroContent(gamState: g),
+        GamificationBadgeAwarded(gamState: final g) =>
+          _HeroContent(gamState: g),
+        GamificationError() => const _HeroError(),
+      },
+    );
+  }
+}
+
+// ── Loading ───────────────────────────────────────────────────────────────────
+
+class _HeroLoading extends StatelessWidget {
+  const _HeroLoading();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(
+          color: Colors.white54,
+          strokeWidth: 2,
         ),
       ),
     );
   }
 }
 
-// ── Welcome state (before first task completion) ──────────────────────────────
+// ── Error ─────────────────────────────────────────────────────────────────────
 
-class _WelcomeContent extends StatelessWidget {
+class _HeroError extends StatelessWidget {
+  const _HeroError();
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+        ),
+      ),
+      child: const Center(
+        child: Text(
+          'Could not load stats',
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Loaded ────────────────────────────────────────────────────────────────────
+
+class _HeroContent extends StatelessWidget {
+  const _HeroContent({required this.gamState});
+  final GamificationStateData gamState;
+
+  @override
+  Widget build(BuildContext context) {
+    final isWelcome = gamState.spriteState == SpriteState.welcome;
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          // Left: streak counter
+          Expanded(
+            child: isWelcome ? const _WelcomeMessage() : _StreakColumn(gamState: gamState),
+          ),
+          // Right: tree health meter
+          if (!isWelcome)
+            _TreeHealthColumn(gamState: gamState),
+        ],
+      ),
+    );
+  }
+}
+
+class _WelcomeMessage extends StatelessWidget {
+  const _WelcomeMessage();
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SpritePlaceholder(emoji: '🌱', size: 52),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Welcome to Task Nibbles!',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Complete your first task to start your streak.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withOpacity(0.85),
-                    ),
-              ),
-            ],
+        const Text(
+          'Welcome to Task Nibbles!',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+        const SizedBox(height: 4),
+        Text(
+          'Complete your first task to start your streak.',
+          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+        ),
       ],
     );
   }
 }
 
-// ── Loaded state (after first completion) ─────────────────────────────────────
-
-class _LoadedContent extends StatelessWidget {
-  const _LoadedContent({
-    required this.streakCount,
-    required this.treeHealthScore,
-    required this.graceActive,
-  });
-
-  final int streakCount;
-  final int treeHealthScore;
-  final bool graceActive;
+class _StreakColumn extends StatelessWidget {
+  const _StreakColumn({required this.gamState});
+  final GamificationStateData gamState;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SpritePlaceholder(emoji: '🌳', size: 52),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Streak counter
-              Row(
-                children: [
-                  Text(
-                    '$streakCount day${streakCount == 1 ? '' : 's'} streak',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  if (graceActive) ...[
-                    const SizedBox(width: 6),
-                    const Tooltip(
-                      message: 'Grace day active',
-                      child: Text('⚡', style: TextStyle(fontSize: 14)),
-                    ),
-                  ],
-                ],
+        Row(
+          children: [
+            const Text('🔥', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 6),
+            Text(
+              key: const Key('hero_streak_count'),
+              '${gamState.streakCount}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
               ),
-              const SizedBox(height: 6),
-              // Tree health bar
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: treeHealthScore / 100,
-                        backgroundColor: Colors.white.withOpacity(0.25),
-                        valueColor: AlwaysStoppedAnimation(
-                          _healthColor(treeHealthScore),
-                        ),
-                        minHeight: 8,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$treeHealthScore',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+            ),
+            const SizedBox(width: 4),
+            const Text('day streak',
+                style: TextStyle(color: Colors.white70, fontSize: 12)),
+            // Grace indicator (M-035)
+            if (gamState.graceActive) ...[
+              const SizedBox(width: 6),
+              const Tooltip(
+                message: 'Grace day active — streak protected!',
+                child: Icon(
+                  Icons.bolt_rounded,
+                  color: Color(0xFFFFD600),
+                  size: 18,
+                  key: Key('hero_grace_indicator'),
+                ),
               ),
             ],
-          ),
+          ],
         ),
-        const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+        const SizedBox(height: 2),
+        Text(
+          _spriteLabel(gamState.spriteState),
+          style: TextStyle(
+              color: Colors.white.withOpacity(0.75), fontSize: 11),
+        ),
       ],
     );
   }
 
-  Color _healthColor(int score) {
-    if (score >= 75) return const Color(0xFF4CAF50);
-    if (score >= 50) return const Color(0xFF8BC34A);
-    if (score >= 25) return const Color(0xFFFFC107);
-    return const Color(0xFFF44336);
-  }
+  String _spriteLabel(SpriteState state) => switch (state) {
+        SpriteState.happy => 'Your companion is cheering! 😊',
+        SpriteState.neutral => 'Keep going — stay consistent! 😐',
+        SpriteState.sad => 'Your companion needs you. Start a task! 😢',
+        SpriteState.welcome => '',
+      };
 }
 
-// ── Shared sprite placeholder (Rive in Sprint 4) ──────────────────────────────
-
-class _SpritePlaceholder extends StatelessWidget {
-  const _SpritePlaceholder({required this.emoji, required this.size});
-  final String emoji;
-  final double size;
+class _TreeHealthColumn extends StatelessWidget {
+  const _TreeHealthColumn({required this.gamState});
+  final GamificationStateData gamState;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          shape: BoxShape.circle,
+  Widget build(BuildContext context) {
+    final treeEmoji = switch (gamState.treeState) {
+      TreeState.thriving => '🌳',
+      TreeState.healthy => '🌿',
+      TreeState.struggling => '🍂',
+      TreeState.withering => '🪨',
+    };
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(treeEmoji, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 6),
+            Text(
+              key: const Key('hero_tree_health'),
+              '${gamState.treeHealthScore}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Text('/100',
+                style: TextStyle(color: Colors.white60, fontSize: 11)),
+          ],
         ),
-        child: Center(
-          child: Text(emoji, style: TextStyle(fontSize: size * 0.5)),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: 90,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              key: const Key('hero_health_bar'),
+              value: gamState.treeHealthScore / 100,
+              minHeight: 5,
+              backgroundColor: Colors.white24,
+              valueColor: const AlwaysStoppedAnimation(Colors.white),
+            ),
+          ),
         ),
-      );
+        const SizedBox(height: 2),
+        Text(
+          _treeLabel(gamState.treeState),
+          style: const TextStyle(color: Colors.white70, fontSize: 10),
+        ),
+      ],
+    );
+  }
+
+  String _treeLabel(TreeState t) => switch (t) {
+        TreeState.thriving => 'THRIVING',
+        TreeState.healthy => 'HEALTHY',
+        TreeState.struggling => 'STRUGGLING',
+        TreeState.withering => 'WITHERING',
+      };
 }

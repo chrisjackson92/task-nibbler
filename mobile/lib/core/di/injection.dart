@@ -8,6 +8,7 @@ import '../../features/attachments/data/attachment_repository.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/gamification/bloc/gamification_cubit.dart';
+import '../../features/gamification/data/gamification_repository.dart';
 import '../../features/settings/bloc/settings_cubit.dart';
 import '../../features/tasks/bloc/task_list_bloc.dart';
 import '../../features/tasks/data/task_repository.dart';
@@ -28,6 +29,7 @@ class Injection {
   late final AuthRepository authRepository;
   late final TaskRepository taskRepository;
   late final AttachmentRepository attachmentRepository;
+  late final GamificationRepository gamificationRepository;
   late final AuthBloc authBloc;
   late final TaskListBloc taskListBloc;
   late final GamificationCubit gamificationCubit;
@@ -67,6 +69,7 @@ class Injection {
       tokenStorage: inj.tokenStorage,
     );
     inj.attachmentRepository = AttachmentRepository(apiDio: dio);
+    inj.gamificationRepository = GamificationRepository(dio: dio);
 
     // BLoCs / Cubits
     inj.authBloc = AuthBloc(
@@ -77,8 +80,10 @@ class Injection {
     // Wire the callback now that authBloc exists.
     onTokenExpiredCallback = () => inj.authBloc.add(const AuthTokenExpired());
 
-    inj.gamificationCubit = GamificationCubit();
     inj.connectivityCubit = ConnectivityCubit();
+    inj.gamificationCubit = GamificationCubit(
+      repository: inj.gamificationRepository,
+    );
 
     // TaskListBloc — created as singleton so screens that push/pop share state.
     inj.taskListBloc = TaskListBloc(

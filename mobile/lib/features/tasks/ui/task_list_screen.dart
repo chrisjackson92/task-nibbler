@@ -7,6 +7,7 @@ import '../../../core/connectivity/connectivity_cubit.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/offline_banner.dart';
 import '../../gamification/bloc/gamification_cubit.dart';
+import '../../gamification/ui/widgets/badge_award_listener.dart';
 import '../bloc/task_list_bloc.dart';
 import '../ui/gamification/hero_section.dart';
 import 'widgets/filter_bottom_sheet.dart';
@@ -25,141 +26,144 @@ class _TaskListScreenState extends State<TaskListScreen> {
   void initState() {
     super.initState();
     context.read<TaskListBloc>().add(const LoadTasks());
+    // Load real gamification state from API on app open (SPR-004-MB).
+    context.read<GamificationCubit>().loadState();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return BlocListener<ConnectivityCubit, ConnectivityStatus>(
-      listener: (context, status) {
-        if (status == ConnectivityStatus.connected) {
-          // Back online — refresh from API.
-          context.read<TaskListBloc>().add(const RefreshTasks());
-        }
-      },
-      child: Scaffold(
-        body: Column(
-          children: [
-            // Offline banner (slides in/out).
-            const OfflineBanner(),
-            Expanded(
-              child: CustomScrollView(
-                slivers: [
-                  SliverAppBar(
-                    floating: true,
-                    snap: true,
-                    title: const Text('My Tasks'),
-                    actions: [
-                      BlocBuilder<TaskListBloc, TaskListState>(
-                        buildWhen: (prev, curr) =>
-                            curr is TaskListLoaded || curr is TaskListLoading,
-                        builder: (context, state) {
-                          final filter = state is TaskListLoaded
-                              ? state.activeFilter
-                              : TaskFilter.empty;
-                          return Stack(
-                            children: [
-                              IconButton(
-                                key: const Key('task_list_filter_button'),
-                                icon: const Icon(Icons.tune_rounded),
-                                onPressed: () => FilterBottomSheet.show(
-                                  context,
-                                  filter,
-                                ),
-                              ),
-                              if (filter.hasActiveFilter)
-                                Positioned(
-                                  right: 8,
-                                  top: 8,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary,
-                                      shape: BoxShape.circle,
-                                    ),
+    return BadgeAwardListener(
+      child: BlocListener<ConnectivityCubit, ConnectivityStatus>(
+        listener: (context, status) {
+          if (status == ConnectivityStatus.connected) {
+            context.read<TaskListBloc>().add(const RefreshTasks());
+          }
+        },
+        child: Scaffold(
+          body: Column(
+            children: [
+              const OfflineBanner(),
+              Expanded(
+                child: CustomScrollView(
+                  slivers: [
+                    SliverAppBar(
+                      floating: true,
+                      snap: true,
+                      title: const Text('My Tasks'),
+                      actions: [
+                        BlocBuilder<TaskListBloc, TaskListState>(
+                          buildWhen: (prev, curr) =>
+                              curr is TaskListLoaded || curr is TaskListLoading,
+                          builder: (context, state) {
+                            final filter = state is TaskListLoaded
+                                ? state.activeFilter
+                                : TaskFilter.empty;
+                            return Stack(
+                              children: [
+                                IconButton(
+                                  key: const Key('task_list_filter_button'),
+                                  icon: const Icon(Icons.tune_rounded),
+                                  onPressed: () => FilterBottomSheet.show(
+                                    context,
+                                    filter,
                                   ),
                                 ),
-                            ],
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.settings_outlined),
-                        onPressed: () => context.push(AppRoutes.settings),
-                      ),
-                    ],
-                  ),
-                  // Gamification hero (collapsible section).
-                  SliverToBoxAdapter(
-                    child: BlocProvider.value(
-                      value: context.read<GamificationCubit>(),
-                      child: const HeroSection(),
+                                if (filter.hasActiveFilter)
+                                  Positioned(
+                                    right: 8,
+                                    top: 8,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.settings_outlined),
+                          onPressed: () => context.push(AppRoutes.settings),
+                        ),
+                      ],
                     ),
-                  ),
-                  // Task list body.
-                  BlocConsumer<TaskListBloc, TaskListState>(
-                    listener: (context, state) {
-                      if (state is TaskListError) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(state.message),
-                            backgroundColor: theme.colorScheme.error,
-                          ),
-                        );
-                      }
-                    },
-                    builder: (context, state) {
-                      return switch (state) {
-                        TaskListInitial() || TaskListLoading() =>
-                          const SliverFillRemaining(
-                            child: Center(child: CircularProgressIndicator()),
-                          ),
-                        TaskListError() => SliverFillRemaining(
-                            child: _EmptyOrErrorView(
-                              icon: Icons.error_outline_rounded,
-                              message: state.message,
-                              onRetry: () => context
-                                  .read<TaskListBloc>()
-                                  .add(const RefreshTasks()),
+                    // Gamification hero (collapsible) — tap navigates to detail.
+                    SliverToBoxAdapter(
+                      child: GestureDetector(
+                        key: const Key('hero_section_tap'),
+                        onTap: () => context.push(AppRoutes.gamification),
+                        child: const HeroSection(),
+                      ),
+                    ),
+                    // Task list body.
+                    BlocConsumer<TaskListBloc, TaskListState>(
+                      listener: (context, state) {
+                        if (state is TaskListError) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(state.message),
+                              backgroundColor: theme.colorScheme.error,
                             ),
-                          ),
-                        TaskListLoaded(tasks: final tasks) when tasks.isEmpty =>
-                          const SliverFillRemaining(
-                            child: _EmptyTasksView(),
-                          ),
-                        TaskListLoaded(
-                          tasks: final tasks,
-                          isOffline: final isOffline,
-                        ) =>
-                          _buildTaskList(context, tasks, isOffline),
-                      };
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        floatingActionButton: BlocBuilder<TaskListBloc, TaskListState>(
-          buildWhen: (p, c) => c is TaskListLoaded || c is TaskListInitial,
-          builder: (context, state) {
-            final isOffline = state is TaskListLoaded && state.isOffline;
-            return Tooltip(
-              message: isOffline ? "You're offline" : 'New task',
-              child: FloatingActionButton(
-                key: const Key('task_list_fab'),
-                onPressed: isOffline
-                    ? null
-                    : () => context.push(AppRoutes.taskCreate),
-                child: Icon(
-                  Icons.add_rounded,
-                  color: isOffline ? Colors.grey : null,
+                          );
+                        }
+                      },
+                      builder: (context, state) {
+                        return switch (state) {
+                          TaskListInitial() || TaskListLoading() =>
+                            const SliverFillRemaining(
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          TaskListError() => SliverFillRemaining(
+                              child: _EmptyOrErrorView(
+                                icon: Icons.error_outline_rounded,
+                                message: state.message,
+                                onRetry: () => context
+                                    .read<TaskListBloc>()
+                                    .add(const RefreshTasks()),
+                              ),
+                            ),
+                          TaskListLoaded(tasks: final tasks) when tasks.isEmpty =>
+                            const SliverFillRemaining(
+                              child: _EmptyTasksView(),
+                            ),
+                          TaskListLoaded(
+                            tasks: final tasks,
+                            isOffline: final isOffline,
+                          ) =>
+                            _buildTaskList(context, tasks, isOffline),
+                        };
+                      },
+                    ),
+                  ],
                 ),
               ),
-            );
-          },
+            ],
+          ),
+          floatingActionButton: BlocBuilder<TaskListBloc, TaskListState>(
+            buildWhen: (p, c) => c is TaskListLoaded || c is TaskListInitial,
+            builder: (context, state) {
+              final isOffline = state is TaskListLoaded && state.isOffline;
+              return Tooltip(
+                message: isOffline ? "You're offline" : 'New task',
+                child: FloatingActionButton(
+                  key: const Key('task_list_fab'),
+                  onPressed: isOffline
+                      ? null
+                      : () => context.push(AppRoutes.taskCreate),
+                  child: Icon(
+                    Icons.add_rounded,
+                    color: isOffline ? Colors.grey : null,
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

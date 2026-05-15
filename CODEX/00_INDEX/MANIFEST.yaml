@@ -590,7 +590,7 @@ documents:
     path: 05_PROJECT/SPR-001-MB_Mobile_Scaffold_and_Auth.md
     title: "Sprint 1 — Mobile Scaffold & Auth"
     type: sprint
-    status: BLOCKED
+    status: READY
     tags: [sprint, mobile, auth, scaffold]
     agents: [coder]
     summary: >

@@ -1,0 +1,102 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# deploy-prod.yml — Deploy to Fly.io Production
+# B-031 — SPR-006-OPS
+#
+# Triggers on push to `main` when backend files change.
+# Pipeline: lint → tests (full, with race detector) → coverage gate → deploy to production
+#
+# THE HUMAN MUST MERGE TO `main`. CI deploy runs automatically after the merge.
+# The `environment: production` gate provides an additional human-approval checkpoint
+# if configured in GitHub Repository Settings → Environments → production → Required reviewers.
+#
+# Required GitHub secrets:
+#   FLY_PROD_API_TOKEN — generate via: fly tokens create deploy --app task-nibbles-api
+#
+# See RUN-002 §7 and GOV-008 §7 for secrets management policy.
+# ──────────────────────────────────────────────────────────────────────────────
+name: "Deploy to Production"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+
+# Do NOT cancel in-progress production deploys — let them finish
+concurrency:
+  group: "production-deploy"
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: "Test"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set up Go 1.23"
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: backend/go.sum
+
+      - name: "Download dependencies"
+        run: go mod download
+
+      - name: "Vet"
+        run: go vet ./...
+
+      - name: "Run unit tests (full suite with race detector)"
+        # Production CI runs full tests (not -short) with race detection
+        run: go test ./... -race -count=1 -coverprofile=coverage.out
+
+      - name: "Check coverage ≥ 70%"
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | tr -d '%')
+          echo "Coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+            echo "ERROR: Coverage ${COVERAGE}% is below the 70% threshold (GOV-002)"
+            exit 1
+          fi
+
+  deploy:
+    name: "Deploy to Production"
+    runs-on: ubuntu-latest
+    needs: test
+    # `environment: production` creates an approval gate in GitHub Environments.
+    # Configure: Repository → Settings → Environments → production → Required reviewers
+    # The Human must approve before this job runs.
+    environment: production
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set up Fly CLI"
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: "Deploy to production"
+        # --remote-only: Fly builds on their infrastructure
+        # fly.toml (production config) is used by default
+        run: fly deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_PROD_API_TOKEN }}
+
+      - name: "Verify production health"
+        run: |
+          sleep 15  # Allow Fly to complete traffic cutover and health checks
+          curl --fail --silent --max-time 10 \
+            https://task-nibbles-api.fly.dev/health \
+            | grep -q '"status"' \
+            && echo "✅ Production health check passed" \
+            || (echo "❌ Production health check failed — check fly logs --app task-nibbles-api" && exit 1)

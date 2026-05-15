@@ -13,75 +13,196 @@ import (
 )
 
 // ────────────────────────────────────────────────────────────────────────────
-// Mock GamificationRepository (in-memory)
+// mockGamifStateRepo — satisfies repositories.GamificationStateReader
+// The mock intentionally mutates the same struct pointer to validate the snapshot fix.
 // ────────────────────────────────────────────────────────────────────────────
 
-type mockGamifRepo struct {
-	state *repositories.GamificationState
+type mockGamifStateRepo struct {
+	state            *repositories.GamificationState
+	updateErr        error
+	graceUsedAtCalls int
+	nightlyDecayCalls  int
+	treeHealthCalls  int
 }
 
-func (m *mockGamifRepo) GetByUserID(_ context.Context, userID uuid.UUID) (*repositories.GamificationState, error) {
+func (m *mockGamifStateRepo) GetByUserID(_ context.Context, _ uuid.UUID) (*repositories.GamificationState, error) {
 	if m.state == nil {
 		return nil, repositories.ErrNotFound
 	}
 	return m.state, nil
 }
 
-func (m *mockGamifRepo) UpdateOnComplete(_ context.Context, userID uuid.UUID, newStreak int, lastActive time.Time) (*repositories.GamificationState, error) {
+func (m *mockGamifStateRepo) UpdateOnComplete(_ context.Context, _ uuid.UUID, newStreak int, lastActive time.Time) (*repositories.GamificationState, error) {
+	if m.updateErr != nil {
+		return nil, m.updateErr
+	}
 	if m.state == nil {
 		return nil, repositories.ErrNotFound
 	}
+	// Mutate same pointer — validates snapshot fix
 	m.state.StreakCount = int32(newStreak)
 	m.state.LastActiveDate = &lastActive
 	m.state.HasCompletedFirstTask = true
-	newScore := m.state.TreeHealthScore + 5
-	if newScore > 100 {
-		newScore = 100
+	newHealth := int(m.state.TreeHealthScore) + 5
+	if newHealth > 100 {
+		newHealth = 100
 	}
-	m.state.TreeHealthScore = newScore
+	m.state.TreeHealthScore = int32(newHealth)
 	return m.state, nil
 }
 
-// Adapter so mockGamifRepo satisfies the interface used by NewGamificationService
-type gamifRepoAdapter struct {
-	mock *mockGamifRepo
+func (m *mockGamifStateRepo) UpdateGraceUsedAt(_ context.Context, _ uuid.UUID, _ time.Time) error {
+	m.graceUsedAtCalls++
+	return nil
+}
+
+func (m *mockGamifStateRepo) UpdateNightlyDecay(_ context.Context, _ uuid.UUID, newStreak, newHealth int) error {
+	m.nightlyDecayCalls++
+	if m.state != nil {
+		m.state.StreakCount = int32(newStreak)
+		m.state.TreeHealthScore = int32(newHealth)
+	}
+	return nil
+}
+
+func (m *mockGamifStateRepo) UpdateTreeHealth(_ context.Context, _ uuid.UUID, newHealth int) error {
+	m.treeHealthCalls++
+	if m.state != nil {
+		m.state.TreeHealthScore = int32(newHealth)
+	}
+	return nil
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Tests
+// mockBadgeRepo — satisfies repositories.BadgeRepository
 // ────────────────────────────────────────────────────────────────────────────
 
-func TestCompleteTask_IncrementsStreak(t *testing.T) {
-	yesterday := time.Now().UTC().AddDate(0, 0, -1).Truncate(24 * time.Hour)
-	userID := uuid.New()
+type mockBadgeRepo struct {
+	awarded         map[string]bool // badge_id → already awarded?
+	taskCountToday  int
+}
 
+func newMockBadgeRepo() *mockBadgeRepo {
+	return &mockBadgeRepo{awarded: make(map[string]bool)}
+}
+
+func (m *mockBadgeRepo) TryAward(_ context.Context, _ uuid.UUID, badgeID string) (bool, error) {
+	if m.awarded[badgeID] {
+		return false, nil // already awarded — ON CONFLICT DO NOTHING behaviour
+	}
+	m.awarded[badgeID] = true
+	return true, nil
+}
+
+func (m *mockBadgeRepo) GetUserBadges(_ context.Context, _ uuid.UUID) ([]*repositories.UserBadge, error) {
+	var result []*repositories.UserBadge
+	for id := range m.awarded {
+		result = append(result, &repositories.UserBadge{BadgeID: id, EarnedAt: time.Now()})
+	}
+	return result, nil
+}
+
+func (m *mockBadgeRepo) GetAllBadges(_ context.Context) ([]*repositories.BadgeCatalogEntry, error) {
+	// Return a representative subset for test purposes
+	return []*repositories.BadgeCatalogEntry{
+		{ID: "FIRST_NIBBLE", Name: "First Nibble", Emoji: "🌱", TriggerType: "FIRST_TASK", Description: "-"},
+		{ID: "STREAK_7", Name: "Week Warrior", Emoji: "🔥", TriggerType: "STREAK_MILESTONE", Description: "-"},
+	}, nil
+}
+
+func (m *mockBadgeRepo) CountTasksCompletedToday(_ context.Context, _ uuid.UUID) (int, error) {
+	return m.taskCountToday, nil
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+func newSvc(state *repositories.GamificationState) (services.GamificationService, *mockGamifStateRepo, *mockBadgeRepo) {
+	repo := &mockGamifStateRepo{state: state}
+	badges := newMockBadgeRepo()
+	svc := services.NewGamificationService(repo, badges)
+	return svc, repo, badges
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Grace Day Tests
+// ────────────────────────────────────────────────────────────────────────────
+
+func TestGamif_GraceAvailable_StreakPreserved(t *testing.T) {
+	// Day missed, grace never used → streak preserved via grace
+	twoDaysAgo := time.Now().UTC().AddDate(0, 0, -2).Truncate(24 * time.Hour)
+	userID := uuid.New()
 	state := &repositories.GamificationState{
 		ID:                    uuid.New(),
 		UserID:                userID,
-		StreakCount:           3,
-		LastActiveDate:        &yesterday,
-		HasCompletedFirstTask: true, // already completed a task before this one
+		StreakCount:           5,
+		LastActiveDate:        &twoDaysAgo, // missed 1 day
+		HasCompletedFirstTask: true,
 		TreeHealthScore:       50,
+		GraceUsedAt:           nil, // grace never used
 	}
-
-	// We call OnTaskCompleted logic directly by constructing a gamificationService
-	// with a controlled repo. Since gamificationService.repo is unexported, we test
-	// via the public service interface using a fake GamificationRepository.
-	repo := &fakeGamifRepo{state: state}
-	svc := newGamifSvcFromFake(repo)
+	svc, _, _ := newSvc(state)
 
 	delta, err := svc.OnTaskCompleted(context.Background(), userID)
 
 	require.NoError(t, err)
-	assert.Equal(t, 4, delta.StreakCount, "streak should increment to 4")
-	assert.Equal(t, 5, delta.TreeHealthDelta, "tree health delta should be +5")
-	assert.Equal(t, 55, delta.TreeHealthScore)
-	assert.Empty(t, delta.BadgesAwarded, "no badges at streak=4")
+	assert.Equal(t, 5, delta.StreakCount, "streak must be preserved when grace is available")
+	assert.True(t, delta.GraceActive, "grace_active must be true")
 }
 
-func TestCompleteTask_AwardsFirstNibbleBadge(t *testing.T) {
+func TestGamif_GraceUsed3DaysAgo_StreakReset(t *testing.T) {
+	// Grace was used 3 days ago (within 7-day window) → no grace, streak resets to 1
+	threeDaysAgo := time.Now().UTC().AddDate(0, 0, -3).Truncate(24 * time.Hour)
+	twoDaysAgo := time.Now().UTC().AddDate(0, 0, -2).Truncate(24 * time.Hour)
 	userID := uuid.New()
+	state := &repositories.GamificationState{
+		ID:                    uuid.New(),
+		UserID:                userID,
+		StreakCount:           8,
+		LastActiveDate:        &twoDaysAgo,
+		HasCompletedFirstTask: true,
+		TreeHealthScore:       50,
+		GraceUsedAt:           &threeDaysAgo,
+	}
+	svc, _, _ := newSvc(state)
 
+	delta, err := svc.OnTaskCompleted(context.Background(), userID)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, delta.StreakCount, "streak must reset to 1 when grace is exhausted in 7-day window")
+	assert.False(t, delta.GraceActive)
+}
+
+func TestGamif_GraceUsed8DaysAgo_GraceAvailableAgain(t *testing.T) {
+	// Grace was used 8 days ago (outside 7-day window) → grace is available again
+	eightDaysAgo := time.Now().UTC().AddDate(0, 0, -8).Truncate(24 * time.Hour)
+	twoDaysAgo := time.Now().UTC().AddDate(0, 0, -2).Truncate(24 * time.Hour)
+	userID := uuid.New()
+	state := &repositories.GamificationState{
+		ID:                    uuid.New(),
+		UserID:                userID,
+		StreakCount:           10,
+		LastActiveDate:        &twoDaysAgo,
+		HasCompletedFirstTask: true,
+		TreeHealthScore:       60,
+		GraceUsedAt:           &eightDaysAgo, // outside 7-day window → grace refreshed
+	}
+	svc, _, _ := newSvc(state)
+
+	delta, err := svc.OnTaskCompleted(context.Background(), userID)
+
+	require.NoError(t, err)
+	assert.Equal(t, 10, delta.StreakCount, "streak preserved when grace window has reset")
+	assert.True(t, delta.GraceActive)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Badge Engine Tests
+// ────────────────────────────────────────────────────────────────────────────
+
+func TestGamif_FirstCompletion_AwardsFirstNibble(t *testing.T) {
+	userID := uuid.New()
 	state := &repositories.GamificationState{
 		ID:                    uuid.New(),
 		UserID:                userID,
@@ -89,141 +210,142 @@ func TestCompleteTask_AwardsFirstNibbleBadge(t *testing.T) {
 		HasCompletedFirstTask: false,
 		TreeHealthScore:       50,
 	}
-
-	repo := &fakeGamifRepo{state: state}
-	svc := newGamifSvcFromFake(repo)
+	svc, _, _ := newSvc(state)
 
 	delta, err := svc.OnTaskCompleted(context.Background(), userID)
 
 	require.NoError(t, err)
-	require.Len(t, delta.BadgesAwarded, 1, "FIRST_NIBBLE badge should be awarded")
+	require.Len(t, delta.BadgesAwarded, 1)
 	assert.Equal(t, "FIRST_NIBBLE", delta.BadgesAwarded[0].ID)
 }
 
-func TestCompleteTask_AwardsStreak7Badge(t *testing.T) {
+func TestGamif_Streak7_AwardsOnce(t *testing.T) {
 	yesterday := time.Now().UTC().AddDate(0, 0, -1).Truncate(24 * time.Hour)
 	userID := uuid.New()
-
 	state := &repositories.GamificationState{
 		ID:                    uuid.New(),
 		UserID:                userID,
-		StreakCount:           6, // completing today → 7
+		StreakCount:           6, // will become 7
 		LastActiveDate:        &yesterday,
 		HasCompletedFirstTask: true,
 		TreeHealthScore:       50,
 	}
+	svc, _, badges := newSvc(state)
 
-	repo := &fakeGamifRepo{state: state}
-	svc := newGamifSvcFromFake(repo)
+	// First call — should award STREAK_7
+	delta, err := svc.OnTaskCompleted(context.Background(), userID)
+	require.NoError(t, err)
+	assert.Equal(t, 7, delta.StreakCount)
+
+	// Verify badge awarded
+	hasStreak7 := false
+	for _, b := range delta.BadgesAwarded {
+		if b.ID == "STREAK_7" {
+			hasStreak7 = true
+		}
+	}
+	assert.True(t, hasStreak7, "STREAK_7 must be awarded on first reach")
+	assert.True(t, badges.awarded["STREAK_7"], "badge must be in repo")
+
+	// Second call on same streak level — streak already 7 in mock, trying again
+	// TryAward should return false (already awarded), so badge not in delta
+	delta2, err := svc.OnTaskCompleted(context.Background(), userID)
+	require.NoError(t, err)
+	for _, b := range delta2.BadgesAwarded {
+		assert.NotEqual(t, "STREAK_7", b.ID, "STREAK_7 must NOT be awarded twice")
+	}
+}
+
+func TestGamif_Overachiever_10TasksInDay(t *testing.T) {
+	yesterday := time.Now().UTC().AddDate(0, 0, -1).Truncate(24 * time.Hour)
+	userID := uuid.New()
+	state := &repositories.GamificationState{
+		ID:                    uuid.New(),
+		UserID:                userID,
+		StreakCount:           3,
+		LastActiveDate:        &yesterday,
+		HasCompletedFirstTask: true,
+		TreeHealthScore:       50,
+	}
+	_, repo, badges := newSvc(state)
+	badges.taskCountToday = 10 // 10 tasks today triggers OVERACHIEVER
+	svc := services.NewGamificationService(repo, badges)
 
 	delta, err := svc.OnTaskCompleted(context.Background(), userID)
 
 	require.NoError(t, err)
-	assert.Equal(t, 7, delta.StreakCount)
-	require.Len(t, delta.BadgesAwarded, 1, "STREAK_7 badge should be awarded")
-	assert.Equal(t, "STREAK_7", delta.BadgesAwarded[0].ID)
+	hasOverachiever := false
+	for _, b := range delta.BadgesAwarded {
+		if b.ID == "OVERACHIEVER" {
+			hasOverachiever = true
+		}
+	}
+	assert.True(t, hasOverachiever, "OVERACHIEVER badge must be awarded at 10 completions")
 }
 
-func TestCompleteTask_IdempotentSameDay(t *testing.T) {
-	// Completing multiple tasks on the same day should not increment streak again
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	userID := uuid.New()
+// ────────────────────────────────────────────────────────────────────────────
+// WELCOME State Tests
+// ────────────────────────────────────────────────────────────────────────────
 
+func TestGamif_WelcomeState_NoDecayOnMissedDay(t *testing.T) {
+	// WELCOME state: has_completed_first_task=false → no penalty on missed day
+	// ApplyNightlyDecay should be a no-op
+	userID := uuid.New()
+	state := &repositories.GamificationState{
+		ID:                    uuid.New(),
+		UserID:                userID,
+		StreakCount:           0,
+		HasCompletedFirstTask: false, // WELCOME state
+		TreeHealthScore:       50,
+	}
+	repo := &mockGamifStateRepo{state: state}
+	svc := services.NewGamificationService(repo, newMockBadgeRepo())
+
+	err := svc.ApplyNightlyDecay(context.Background(), userID)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, repo.nightlyDecayCalls, "WELCOME state: nightly decay must not be applied")
+	assert.Equal(t, int32(50), state.TreeHealthScore, "tree health must be unchanged in WELCOME state")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Overdue Penalty Test
+// ────────────────────────────────────────────────────────────────────────────
+
+func TestGamif_OverduePenalty_NegativeThreePerTask(t *testing.T) {
+	userID := uuid.New()
 	state := &repositories.GamificationState{
 		ID:                    uuid.New(),
 		UserID:                userID,
 		StreakCount:           5,
-		LastActiveDate:        &today, // already completed today
 		HasCompletedFirstTask: true,
 		TreeHealthScore:       50,
 	}
+	repo := &mockGamifStateRepo{state: state}
+	svc := services.NewGamificationService(repo, newMockBadgeRepo())
 
-	repo := &fakeGamifRepo{state: state}
-	svc := newGamifSvcFromFake(repo)
-
-	delta, err := svc.OnTaskCompleted(context.Background(), userID)
+	err := svc.ApplyOverduePenalty(context.Background(), userID, 3) // 3 overdue tasks
 
 	require.NoError(t, err)
-	assert.Equal(t, 5, delta.StreakCount, "streak should NOT increment when already active today")
+	assert.Equal(t, 1, repo.treeHealthCalls, "UpdateTreeHealth must be called once")
+	// 50 - (3 * 3) = 41
+	assert.Equal(t, int32(41), state.TreeHealthScore, "tree health must reflect -3 per overdue task")
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Fake repo using function pointers to avoid import cycle
-// ────────────────────────────────────────────────────────────────────────────
-
-// fakeGamifRepo exposes the two methods needed by gamificationService
-// without depending on *repositories.GamificationRepository (the concrete type).
-// We use a wrapper that constructs a real GamificationService via dependency
-// injection through a testable adapter.
-
-type fakeGamifRepo struct {
-	state *repositories.GamificationState
-}
-
-// newGamifSvcFromFake creates a GamificationService backed by a fakeGamifRepo.
-// This works by embedding the fake as a GamificationRepository-compatible pair.
-func newGamifSvcFromFake(repo *fakeGamifRepo) services.GamificationService {
-	return &fakeGamificationService{repo: repo}
-}
-
-// fakeGamificationService directly implements GamificationService for tests
-// by replicating the exact same logic but using the fake repo.
-type fakeGamificationService struct {
-	repo *fakeGamifRepo
-}
-
-func (s *fakeGamificationService) OnTaskCompleted(ctx context.Context, userID uuid.UUID) (*services.GamificationDelta, error) {
-	gs := s.repo.state
-	if gs == nil {
-		return nil, repositories.ErrNotFound
+func TestGamif_OverduePenalty_WelcomeGuard(t *testing.T) {
+	// WELCOME state must skip overdue penalty
+	userID := uuid.New()
+	state := &repositories.GamificationState{
+		ID:                    uuid.New(),
+		UserID:                userID,
+		HasCompletedFirstTask: false,
+		TreeHealthScore:       50,
 	}
+	repo := &mockGamifStateRepo{state: state}
+	svc := services.NewGamificationService(repo, newMockBadgeRepo())
 
-	todayUTC := time.Now().UTC().Truncate(24 * time.Hour)
-	prevHealth := int(gs.TreeHealthScore)
-	prevStreak := int(gs.StreakCount)
+	err := svc.ApplyOverduePenalty(context.Background(), userID, 5)
 
-	newStreak := prevStreak
-	if gs.LastActiveDate == nil || gs.LastActiveDate.UTC().Truncate(24*time.Hour).Before(todayUTC) {
-		newStreak++
-	}
-
-	// Capture badge state BEFORE mutation (must happen before UpdateOnComplete simulation)
-	wasFirstTask := !gs.HasCompletedFirstTask
-
-	// Simulate UpdateOnComplete
-	gs.StreakCount = int32(newStreak)
-	gs.LastActiveDate = &todayUTC
-	gs.HasCompletedFirstTask = true
-	gs.TreeHealthScore = gs.TreeHealthScore + 5
-	if gs.TreeHealthScore > 100 {
-		gs.TreeHealthScore = 100
-	}
-
-	newHealth := int(gs.TreeHealthScore)
-	healthDelta := newHealth - prevHealth
-
-	// Badge evaluation — match gamification_service.go logic exactly
-	var badges []services.Badge
-	if wasFirstTask {
-		badges = append(badges, services.Badge{ID: "FIRST_NIBBLE"})
-	}
-	if newStreak >= 7 && prevStreak < 7 {
-		badges = append(badges, services.Badge{ID: "STREAK_7"})
-	}
-	if newStreak >= 14 && prevStreak < 14 {
-		badges = append(badges, services.Badge{ID: "STREAK_14"})
-	}
-	if newStreak >= 30 && prevStreak < 30 {
-		badges = append(badges, services.Badge{ID: "STREAK_30"})
-	}
-	if badges == nil {
-		badges = []services.Badge{}
-	}
-
-	return &services.GamificationDelta{
-		StreakCount:     newStreak,
-		TreeHealthScore: newHealth,
-		TreeHealthDelta: healthDelta,
-		BadgesAwarded:   badges,
-	}, nil
+	require.NoError(t, err)
+	assert.Equal(t, 0, repo.treeHealthCalls, "WELCOME state: overdue penalty must not be applied")
 }

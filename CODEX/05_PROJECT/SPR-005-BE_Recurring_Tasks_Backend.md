@@ -2,7 +2,7 @@
 id: SPR-005-BE
 title: "Sprint 5 — Recurring Tasks Backend"
 type: sprint
-status: BLOCKED
+status: MERGED
 assignee: coder
 agent_boot: AGT-002-BE_Backend_Developer_Agent.md
 sprint_number: 5

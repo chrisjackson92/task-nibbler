@@ -2,22 +2,22 @@
 id: SPR-001-MB
 title: "Sprint 1 — Mobile Scaffold & Auth"
 type: sprint
-status: BLOCKED
+status: MERGED
 assignee: coder
 agent_boot: AGT-002-MB_Mobile_Developer_Agent.md
 sprint_number: 1
 track: mobile
 estimated_days: 5
-blocked_by: SPR-001-BE (staging must be deployed)
-related: [BLU-004, CON-001, CON-002, PRJ-001]
+blocked_by: "None — SPR-001-BE staging live at task-nibbles-api-staging.fly.dev ✅"
+related: [BLU-004, CON-001, CON-002, PRJ-001, GOV-011]
 created: 2026-05-14
-updated: 2026-05-14
+updated: 2026-05-15
 ---
 
 > **BLUF:** Bootstrap the entire Flutter project and implement all authentication screens and infrastructure. By the end of this sprint: the app runs on a physical device, can register/login/forgot-password, stores tokens securely, performs silent refresh on 401, shows an offline banner, and has a collapsible gamification hero placeholder on the home screen.
 
-> [!WARNING]
-> **Status: BLOCKED.** This sprint cannot start until `SPR-001-BE` is complete and staging (`task-nibbles-api-staging.fly.dev`) is live. The mobile app points at staging — there must be a live API to call.
+> [!NOTE]
+> **Status: READY.** Staging API is live at `task-nibbles-api-staging.fly.dev`. Auth endpoints (register, login, refresh, forgot-password, reset-password) are all deployed and verified (AUD-001-BE ✅).
 
 # Sprint 1-MB — Mobile Scaffold & Auth
 
@@ -25,13 +25,16 @@ updated: 2026-05-14
 
 ## Pre-Conditions (Must be TRUE before starting)
 
-- [ ] `SPR-001-BE` complete — staging API live at `task-nibbles-api-staging.fly.dev`
+- [x] `SPR-001-BE` complete — staging API live at `task-nibbles-api-staging.fly.dev` (AUD-001-BE APPROVED 2026-05-15)
+- [x] `SPR-002-BE` task endpoints merged to develop (AUD-002-BE APPROVED 2026-05-15) — not required for this sprint but means staging deploy will include them
 - [ ] Read `AGT-002-MB_Mobile_Developer_Agent.md` in full
+- [ ] Read `GOV-011_Flutter_Mobile_Best_Practices.md` in full ← **NEW — mandatory reading**
 - [ ] Read `BLU-004_Frontend_Architecture.md` in full
 - [ ] Read `CON-001_Transport_Contract.md` in full
 - [ ] Read `CON-002_API_Contract.md` §1 (Auth routes) in full
 - [ ] Read `PRJ-001` §4 (User Flows) and §5.1 (Auth spec) in full
 - [ ] FVM + Flutter 3.22+ installed and verified
+- [ ] Branch `feature/M-001-mobile-scaffold` forked from `develop`
 - [ ] Physical device or emulator available for testing
 
 ---

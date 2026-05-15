@@ -1,33 +1,69 @@
-app = "task-nibbles-api-staging"
-primary_region = "iad"
+# fly.toml — Task Nibbles API (PRODUCTION)
+# B-029 — SPR-006-OPS
+#
+# This file configures the PRODUCTION Fly.io app: task-nibbles-api
+# Deploy: fly deploy --app task-nibbles-api (or via GitHub Actions on push to `main`)
+#
+# IMPORTANT: do NOT commit secrets here.
+# All sensitive values are set via: fly secrets set ... --app task-nibbles-api
+# See RUN-002 §1 Step 5 for the full secrets list.
+
+app            = "task-nibbles-api"
+primary_region = "iad"        # Ashburn, VA (US East) — closest to initial user base
+
+kill_signal  = "SIGINT"       # Gin handles SIGINT gracefully
+kill_timeout = "5s"           # Allow in-flight requests to complete
 
 [build]
+  # Dockerfile is in /backend/ — Fly resolves it relative to this fly.toml
+  dockerfile = "Dockerfile"
 
-[env]
-  PORT = "8080"
-  APP_ENV = "staging"
-  LOG_LEVEL = "debug"
-  AWS_REGION = "us-east-1"
-
-[http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = true
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ["app"]
-
-[[http_service.checks]]
-  grace_period = "5s"
-  interval = "30s"
-  method = "GET"
-  path = "/health"
-  timeout = "5s"
-
+# ── Release Phase: run DB migrations BEFORE traffic cuts over ─────────────────
+# If migration fails, deploy aborts and old version keeps serving traffic.
+# See RUN-002 §4 for the Safe Migration Pattern.
 [deploy]
+  # NOTE: Fly prepends ENTRYPOINT [/api] to this value.
+  # 'migrate' alone → '/api migrate' → os.Args[1] == 'migrate' ✓
+  # '/api migrate' would produce '/api /api migrate' → wrong args → API server starts instead of migrating.
   release_command = "migrate"
 
+# ── Non-secret environment variables ──────────────────────────────────────────
+# Secrets (DATABASE_URL, JWT_SECRET, etc.) are set via: fly secrets set
+[env]
+  PORT      = "8080"
+  APP_ENV   = "production"
+  LOG_LEVEL = "info"          # Structured JSON logs parsed by Fly dashboard
+  AWS_REGION = "us-east-1"
+
+# ── HTTP service ───────────────────────────────────────────────────────────────
+[http_service]
+  internal_port     = 8080
+  force_https       = true    # Fly terminates TLS; API only sees HTTP internally
+  auto_stop_machines = false  # Production: machines always warm (no cold starts)
+  auto_start_machines = true
+  min_machines_running = 1    # At least 1 machine always running
+  processes         = ["app"]
+
+  # Soft/hard concurrency limits per machine (256 MB shared-cpu-1x)
+  [http_service.concurrency]
+    type       = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+# ── Health check ───────────────────────────────────────────────────────────────
+# Fly uses this to determine if the deploy succeeded.
+# GET /health → 200 within 5s = healthy; failure → deploy aborted.
+[[http_service.checks]]
+  interval     = "30s"
+  timeout      = "5s"
+  grace_period = "10s"        # Wait after container start before checking
+  method       = "GET"
+  path         = "/health"
+
+# ── Machine sizing ─────────────────────────────────────────────────────────────
+# shared-cpu-1x + 256 MB RAM is sufficient for the Task Nibbles API at MVP scale.
+# Scale up: fly scale vm shared-cpu-2x --app task-nibbles-api
 [[vm]]
-  memory = "256mb"
+  memory   = "256mb"
   cpu_kind = "shared"
-  cpus = 1
+  cpus     = 1

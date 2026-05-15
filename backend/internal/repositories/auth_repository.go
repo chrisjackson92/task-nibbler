@@ -106,13 +106,33 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-// UpdatePassword sets a new bcrypt password hash for the given user.
 func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, newHash string) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1`,
 		id, newHash,
 	)
 	return err
+}
+
+// ListAllUserIDs returns every user ID in the users table.
+// Used by GamificationNightlyJob to fan-out decay/penalty over all users.
+// Full-table scan is acceptable at MVP scale; add pagination if user count exceeds 10k.
+func (r *UserRepository) ListAllUserIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id FROM users ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func scanUser(row pgx.Row) (*User, error) {
@@ -273,6 +293,21 @@ func scanPasswordResetToken(row pgx.Row) (*PasswordResetToken, error) {
 	return prt, nil
 }
 
+// GamificationStateReader is the interface required by GamificationService.
+// The concrete *GamificationRepository satisfies it automatically.
+// Declared here (in the producer package) rather than in services/ to avoid
+// import cycles — services imports repositories, not vice versa.
+type GamificationStateReader interface {
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*GamificationState, error)
+	UpdateOnComplete(ctx context.Context, userID uuid.UUID, newStreakCount int, lastActiveDate time.Time) (*GamificationState, error)
+	// UpdateGraceUsedAt sets grace_used_at = graceDate (grace day consumed, streak preserved).
+	UpdateGraceUsedAt(ctx context.Context, userID uuid.UUID, graceDate time.Time) error
+	// UpdateNightlyDecay sets streak_count = newStreak and tree_health_score = newHealth (zero-completion decay).
+	UpdateNightlyDecay(ctx context.Context, userID uuid.UUID, newStreak, newHealth int) error
+	// UpdateTreeHealth sets tree_health_score = newHealth (overdue penalty in isolation).
+	UpdateTreeHealth(ctx context.Context, userID uuid.UUID, newHealth int) error
+}
+
 // GamificationRepository handles data access for the gamification_state table.
 type GamificationRepository struct {
 	pool *pgxpool.Pool
@@ -357,4 +392,39 @@ func scanGamificationState(row pgx.Row) (*GamificationState, error) {
 		return nil, err
 	}
 	return gs, nil
+}
+
+// UpdateGraceUsedAt sets grace_used_at to graceDate (grace consumed; streak preserved).
+func (r *GamificationRepository) UpdateGraceUsedAt(ctx context.Context, userID uuid.UUID, graceDate time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE gamification_state
+		SET grace_used_at = $1, updated_at = NOW()
+		WHERE user_id = $2`,
+		graceDate, userID,
+	)
+	return err
+}
+
+// UpdateNightlyDecay resets streak_count to newStreak and sets tree_health_score = newHealth.
+// Called by the nightly zero-completion decay cron.
+func (r *GamificationRepository) UpdateNightlyDecay(ctx context.Context, userID uuid.UUID, newStreak, newHealth int) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE gamification_state
+		SET streak_count = $1, tree_health_score = GREATEST(0, LEAST(100, $2)), updated_at = NOW()
+		WHERE user_id = $3`,
+		newStreak, newHealth, userID,
+	)
+	return err
+}
+
+// UpdateTreeHealth sets tree_health_score to newHealth (clamped to [0, 100]).
+// Called by the nightly overdue penalty cron.
+func (r *GamificationRepository) UpdateTreeHealth(ctx context.Context, userID uuid.UUID, newHealth int) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE gamification_state
+		SET tree_health_score = GREATEST(0, LEAST(100, $1)), updated_at = NOW()
+		WHERE user_id = $2`,
+		newHealth, userID,
+	)
+	return err
 }

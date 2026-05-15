@@ -1,0 +1,53 @@
+# fly.staging.toml — Task Nibbles API (STAGING)
+# B-029 — SPR-006-OPS
+#
+# This file configures the STAGING Fly.io app: task-nibbles-api-staging
+# Deploy: fly deploy --config fly.staging.toml --app task-nibbles-api-staging
+# Or via GitHub Actions on push to `develop` (see .github/workflows/deploy-staging.yml)
+#
+# IMPORTANT: do NOT commit secrets here.
+# All sensitive values are set via: fly secrets set ... --app task-nibbles-api-staging
+
+app            = "task-nibbles-api-staging"
+primary_region = "iad"
+
+kill_signal  = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Run DB migrations BEFORE new machines receive traffic.
+[deploy]
+  release_command = "/api migrate"
+
+[env]
+  PORT      = "8080"
+  APP_ENV   = "staging"
+  LOG_LEVEL = "debug"         # Verbose logging on staging for easier debugging
+  AWS_REGION = "us-east-1"
+
+[http_service]
+  internal_port      = 8080
+  force_https        = true
+  auto_stop_machines = true   # Staging: auto-stop idle machines to minimise cost
+  auto_start_machines = true
+  min_machines_running = 0    # 0 = full idle when no traffic (saves cost on staging)
+  processes          = ["app"]
+
+  [http_service.concurrency]
+    type       = "requests"
+    hard_limit = 100
+    soft_limit = 75
+
+[[http_service.checks]]
+  interval     = "30s"
+  timeout      = "5s"
+  grace_period = "5s"
+  method       = "GET"
+  path         = "/health"
+
+[[vm]]
+  memory   = "256mb"
+  cpu_kind = "shared"
+  cpus     = 1

@@ -1,0 +1,94 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# deploy-staging.yml — Deploy to Fly.io Staging
+# B-031 — SPR-006-OPS
+#
+# Triggers on push to `develop` when backend files change.
+# Pipeline: lint → unit tests → deploy to task-nibbles-api-staging
+#
+# Required GitHub secret:
+#   FLY_STAGING_API_TOKEN — generate via: fly tokens create deploy --app task-nibbles-api-staging
+#
+# See RUN-002 §7 and GOV-008 §7 for secrets management policy.
+# ──────────────────────────────────────────────────────────────────────────────
+name: "Deploy to Staging"
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "backend/**"          # Only trigger on backend changes (not mobile, docs, etc.)
+
+# Cancel in-progress staging deploys when a new commit is pushed
+concurrency:
+  group: "staging-deploy"
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: "Test"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set up Go 1.23"
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: backend/go.sum
+
+      - name: "Download dependencies"
+        run: go mod download
+
+      - name: "Vet"
+        run: go vet ./...
+
+      - name: "Run unit tests (short — no DB required)"
+        run: go test ./... -short -race -count=1 -coverprofile=coverage.out
+
+      - name: "Check coverage ≥ 70%"
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | tr -d '%')
+          echo "Coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+            echo "ERROR: Coverage ${COVERAGE}% is below the 70% threshold (GOV-002)"
+            exit 1
+          fi
+
+  deploy:
+    name: "Deploy to Staging"
+    runs-on: ubuntu-latest
+    needs: test             # Only runs if the test job passes
+    environment: staging    # Allows environment-level protections if configured
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set up Fly CLI"
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: "Deploy to staging"
+        # --remote-only: Fly builds the Docker image on their infrastructure (no local Docker needed)
+        # --config: explicitly specifies the staging config to avoid using fly.toml (production)
+        run: fly deploy --config fly.staging.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_STAGING_API_TOKEN }}
+
+      - name: "Verify staging health"
+        run: |
+          sleep 10  # Allow Fly to complete traffic cutover
+          curl --fail --silent --max-time 10 \
+            https://task-nibbles-api-staging.fly.dev/health \
+            | grep -q '"status"' \
+            && echo "✅ Staging health check passed" \
+            || (echo "❌ Staging health check failed" && exit 1)

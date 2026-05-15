@@ -82,6 +82,7 @@ func main() {
 	gamifRepo := repositories.NewGamificationRepository(pool)
 	taskRepo := repositories.NewTaskRepository(pool)
 	attachmentRepo := repositories.NewAttachmentRepository(pool)
+	badgeRepo := repositories.NewBadgeRepository(pool)
 
 	// Wire S3 client (B-015)
 	s3, err := s3client.New(context.Background(), s3client.Config{
@@ -94,10 +95,11 @@ func main() {
 		log.Fatalf("FATAL: cannot create S3 client: %v", err)
 	}
 
+
 	// Wire services
 	emailSvc := services.NewEmailService(cfg.ResendAPIKey, cfg.ResendFromEmail, cfg.AppBaseURL)
 	authSvc := services.NewAuthService(userRepo, refreshRepo, passwordRepo, gamifRepo, emailSvc, cfg.JWTSecret, cfg.JWTRefreshSecret)
-	gamifSvc := services.NewGamificationService(gamifRepo)
+	gamifSvc := services.NewGamificationService(gamifRepo, badgeRepo)
 	taskSvc := services.NewTaskService(taskRepo, gamifSvc)
 	attachmentSvc := services.NewAttachmentService(attachmentRepo, s3)
 
@@ -106,6 +108,8 @@ func main() {
 	healthHandler := handlers.NewHealthHandler(pool, version)
 	taskHandler := handlers.NewTaskHandler(taskSvc)
 	attachmentHandler := handlers.NewAttachmentHandler(attachmentSvc)
+	gamificationHandler := handlers.NewGamificationHandler(gamifSvc)
+
 
 	// Setup router
 	if cfg.IsProduction() {
@@ -150,6 +154,11 @@ func main() {
 		// Attachment routes (B-015, B-042–B-045)
 		attachments := tasks.Group("/:id/attachments")
 		attachmentHandler.RegisterRoutes(attachments)
+
+		// Gamification routes (B-038, B-054) — SPR-004-BE
+		gamif := api.Group("/gamification")
+		gamificationHandler.RegisterRoutes(gamif)
+
 	}
 
 	// Nightly cron scheduler (B-014, B-045)

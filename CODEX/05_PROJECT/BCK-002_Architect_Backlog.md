@@ -8,8 +8,8 @@ agents: [architect]
 tags: [project-management, backlog, architect, audit, deployment]
 related: [BCK-001, GOV-007, GOV-008, RUN-001, RUN-002]
 created: 2026-05-14
-updated: 2026-05-14
-version: 1.0.0
+updated: 2026-05-15
+version: 1.1.0
 ---
 
 > **BLUF:** The Architect Agent has its own work stream parallel to developer sprints. This backlog tracks: CODEX document creation, sprint audits, contract compliance testing, deployment execution, and MANIFEST maintenance. The Architect is never idle while developers build.
@@ -46,43 +46,43 @@ version: 1.0.0
 
 ---
 
-### Phase 1 — Blueprint & Contract Creation (Next)
+### Phase 1 — Blueprint & Contract Creation (Complete ✅)
 
 | ID | Task | Category | Dependencies | Deliverable | Status |
 |:---|:-----|:---------|:-------------|:------------|:-------|
-| A-007 | Fill in BLU-002 (Database Schema) | ARCH-CODEX | PRJ-001 §5 | BLU-002 APPROVED | [ ] Open |
-| A-008 | Fill in BLU-002-SD (Seed Data Reference) | ARCH-CODEX | BLU-002 | BLU-002-SD APPROVED | [ ] Open |
-| A-009 | Fill in BLU-003 (Backend Architecture — Go + Gin) | ARCH-CODEX | GOV-008 | BLU-003 APPROVED | [ ] Open |
-| A-010 | Fill in BLU-004 (Mobile Architecture — Flutter) | ARCH-CODEX | GOV-008 | BLU-004 APPROVED | [ ] Open |
-| A-011 | Fill in CON-001 (Transport Contract) | ARCH-CODEX | BLU-003 | CON-001 APPROVED | [ ] Open |
-| A-012 | Fill in CON-002 (API Contract — full route map) | ARCH-CODEX | BCK-001 | CON-002 APPROVED | [ ] Open |
+| A-007 | Fill in BLU-002 (Database Schema) | ARCH-CODEX | PRJ-001 §5 | BLU-002 APPROVED | ✅ Done |
+| A-008 | Fill in BLU-002-SD (Seed Data Reference) | ARCH-CODEX | BLU-002 | BLU-002-SD APPROVED | ✅ Done |
+| A-009 | Fill in BLU-003 (Backend Architecture — Go + Gin) | ARCH-CODEX | GOV-008 | BLU-003 APPROVED | ✅ Done |
+| A-010 | Fill in BLU-004 (Mobile Architecture — Flutter) | ARCH-CODEX | GOV-008 | BLU-004 APPROVED | ✅ Done |
+| A-011 | Fill in CON-001 (Transport Contract) | ARCH-CODEX | BLU-003 | CON-001 APPROVED | ✅ Done |
+| A-012 | Fill in CON-002 (API Contract — full route map) | ARCH-CODEX | BCK-001 | CON-002 APPROVED | ✅ Done |
 
 ---
 
-### Phase 2 — Agent Boot Documents
+### Phase 2 — Agent Boot Documents (Complete ✅)
 
 | ID | Task | Category | Dependencies | Deliverable | Status |
 |:---|:-----|:---------|:-------------|:------------|:-------|
-| A-013 | Create AGT-002-BE (Backend Developer Boot doc) | ARCH-CODEX | BLU-003, CON-001, CON-002, RUN-001 | AGT-002-BE | [ ] Open |
-| A-014 | Create AGT-002-MB (Mobile Developer Boot doc) | ARCH-CODEX | BLU-004, CON-001, CON-002 | AGT-002-MB | [ ] Open |
+| A-013 | Create AGT-002-BE (Backend Developer Boot doc) | ARCH-CODEX | BLU-003, CON-001, CON-002, RUN-001 | AGT-002-BE | ✅ Done |
+| A-014 | Create AGT-002-MB (Mobile Developer Boot doc) | ARCH-CODEX | BLU-004, CON-001, CON-002 | AGT-002-MB | ✅ Done |
 
 ---
 
-### Phase 3 — Sprint Document Creation
+### Phase 3 — Sprint Document Creation (Complete ✅)
 
 | ID | Task | Category | Dependencies | Deliverable | Status |
 |:---|:-----|:---------|:-------------|:------------|:-------|
-| A-015 | Create SPR-001-BE (Backend Scaffold sprint doc) | ARCH-CODEX | A-009, A-011, A-012, A-013 | SPR-001-BE | [ ] Open |
-| A-016 | Create SPR-001-MB (Mobile Scaffold sprint doc) | ARCH-CODEX | A-010, A-014 | SPR-001-MB | [ ] Open |
-| A-017 | Create SPR-002-BE (Task CRUD backend sprint doc) | ARCH-CODEX | A-007, A-012 | SPR-002-BE | [ ] Open |
-| A-018 | Create SPR-002-MB (Task UI mobile sprint doc) | ARCH-CODEX | SPR-002-BE | SPR-002-MB | [ ] Open |
-| A-019 | Create SPR-003-BE (Attachments backend sprint doc) | ARCH-CODEX | A-007 | SPR-003-BE | [ ] Open |
-| A-020 | Create SPR-003-MB (Attachments mobile sprint doc) | ARCH-CODEX | SPR-003-BE | SPR-003-MB | [ ] Open |
-| A-021 | Create SPR-004-BE (Gamification backend sprint doc) | ARCH-CODEX | A-007, A-012 | SPR-004-BE | [ ] Open |
-| A-022 | Create SPR-004-MB (Gamification mobile sprint doc) | ARCH-CODEX | SPR-004-BE | SPR-004-MB | [ ] Open |
-| A-023 | Create SPR-005-BE (Recurring tasks backend sprint doc) | ARCH-CODEX | A-007 | SPR-005-BE | [ ] Open |
-| A-024 | Create SPR-005-MB (Recurring tasks mobile sprint doc) | ARCH-CODEX | SPR-005-BE | SPR-005-MB | [ ] Open |
-| A-025 | Create SPR-006-OPS (Fly.io deployment sprint doc) | ARCH-CODEX | GOV-008, RUN-001, RUN-002 | SPR-006-OPS | [ ] Open |
+| A-015 | Create SPR-001-BE (Backend Scaffold sprint doc) | ARCH-CODEX | A-009, A-011, A-012, A-013 | SPR-001-BE | ✅ Done |
+| A-016 | Create SPR-001-MB (Mobile Scaffold sprint doc) | ARCH-CODEX | A-010, A-014 | SPR-001-MB | ✅ Done |
+| A-017 | Create SPR-002-BE (Task CRUD backend sprint doc) | ARCH-CODEX | A-007, A-012 | SPR-002-BE | ✅ Done |
+| A-018 | Create SPR-002-MB (Task UI mobile sprint doc) | ARCH-CODEX | SPR-002-BE | SPR-002-MB | ✅ Done |
+| A-019 | Create SPR-003-BE (Attachments backend sprint doc) | ARCH-CODEX | A-007 | SPR-003-BE | ✅ Done |
+| A-020 | Create SPR-003-MB (Attachments mobile sprint doc) | ARCH-CODEX | SPR-003-BE | SPR-003-MB | ✅ Done |
+| A-021 | Create SPR-004-BE (Gamification backend sprint doc) | ARCH-CODEX | A-007, A-012 | SPR-004-BE | ✅ Done |
+| A-022 | Create SPR-004-MB (Gamification mobile sprint doc) | ARCH-CODEX | SPR-004-BE | SPR-004-MB | ✅ Done |
+| A-023 | Create SPR-005-BE (Recurring tasks backend sprint doc) | ARCH-CODEX | A-007 | SPR-005-BE | ✅ Done |
+| A-024 | Create SPR-005-MB (Recurring tasks mobile sprint doc) | ARCH-CODEX | SPR-005-BE | SPR-005-MB | ✅ Done |
+| A-025 | Create SPR-006-OPS (Fly.io deployment sprint doc) | ARCH-CODEX | GOV-008, RUN-001, RUN-002 | SPR-006-OPS | ✅ Done |
 
 ---
 
@@ -90,7 +90,7 @@ version: 1.0.0
 
 | ID | Task | Category | Dependencies | Deliverable | Status |
 |:---|:-----|:---------|:-------------|:------------|:-------|
-| A-026 | SPR-001-BE Architect Audit | ARCH-AUDIT | SPR-001-BE complete | Audit report + pass/fail | [ ] Open |
+| A-026 | SPR-001-BE Architect Audit | ARCH-AUDIT | SPR-001-BE complete | Audit report + pass/fail | ✅ Done — AUD-001-BE (APPROVED_WITH_NOTES) |
 | A-027 | SPR-001-MB Architect Audit | ARCH-AUDIT | SPR-001-MB complete | Audit report + pass/fail | [ ] Open |
 | A-028 | SPR-002-BE Architect Audit | ARCH-AUDIT | SPR-002-BE complete | Audit report + pass/fail | [ ] Open |
 | A-029 | SPR-002-MB Architect Audit | ARCH-AUDIT | SPR-002-MB complete | Audit report + pass/fail | [ ] Open |

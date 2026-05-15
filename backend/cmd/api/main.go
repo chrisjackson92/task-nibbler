@@ -26,6 +26,7 @@ import (
 	"github.com/chrisjackson92/task-nibbler/backend/internal/repositories"
 	"github.com/chrisjackson92/task-nibbler/backend/internal/services"
 	"github.com/gin-gonic/gin"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -77,14 +78,18 @@ func main() {
 	refreshRepo := repositories.NewRefreshTokenRepository(pool)
 	passwordRepo := repositories.NewPasswordResetRepository(pool)
 	gamifRepo := repositories.NewGamificationRepository(pool)
+	taskRepo := repositories.NewTaskRepository(pool)
 
 	// Wire services
 	emailSvc := services.NewEmailService(cfg.ResendAPIKey, cfg.ResendFromEmail, cfg.AppBaseURL)
 	authSvc := services.NewAuthService(userRepo, refreshRepo, passwordRepo, gamifRepo, emailSvc, cfg.JWTSecret, cfg.JWTRefreshSecret)
+	gamifSvc := services.NewGamificationService(gamifRepo)
+	taskSvc := services.NewTaskService(taskRepo, gamifSvc)
 
 	// Wire handlers
 	authHandler := handlers.NewAuthHandler(authSvc)
 	healthHandler := handlers.NewHealthHandler(pool, version)
+	taskHandler := handlers.NewTaskHandler(taskSvc)
 
 	// Setup router
 	if cfg.IsProduction() {
@@ -121,7 +126,30 @@ func main() {
 	{
 		api.DELETE("/auth/logout", authHandler.Logout)
 		api.DELETE("/auth/account", authHandler.DeleteAccount)
+
+		// Task routes (B-011, B-012, B-039, B-040, B-041)
+		tasks := api.Group("/tasks")
+		taskHandler.RegisterRoutes(tasks)
 	}
+
+	// Nightly cron scheduler (B-014)
+	// Full job bodies are added in SPR-005-BE; the scheduler must boot cleanly here
+	// so future sprints can register jobs without touching main.go.
+	s, err := gocron.NewScheduler()
+	if err != nil {
+		log.Fatalf("FATAL: cannot create scheduler: %v", err)
+	}
+	_, err = s.NewJob(
+		gocron.CronJob("5 0 * * *", false),
+		gocron.NewTask(func() {
+			slog.Info("nightly cron: tick — job bodies added in SPR-005-BE")
+		}),
+	)
+	if err != nil {
+		log.Fatalf("FATAL: cannot register nightly cron job: %v", err)
+	}
+	s.Start()
+	defer s.Shutdown()
 
 	slog.Info("starting Task Nibbles API",
 		"port", cfg.Port,

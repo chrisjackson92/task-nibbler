@@ -16,6 +16,7 @@ import (
 type RecurringRule struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
+	Title     string // mirrors tasks.title — used by nightly expansion to populate task instances
 	RRule     string // iCal RRULE string e.g. "FREQ=DAILY;INTERVAL=1"
 	IsActive  bool
 	CreatedAt time.Time
@@ -29,7 +30,7 @@ type RecurringRule struct {
 // RecurringRuleRepository manages data access for recurring_rules.
 type RecurringRuleRepository interface {
 	// Create inserts a new active recurring rule.
-	Create(ctx context.Context, userID uuid.UUID, rrule string) (*RecurringRule, error)
+	Create(ctx context.Context, userID uuid.UUID, title, rrule string) (*RecurringRule, error)
 
 	// GetByID returns the rule for the given id (no user scope — used internally).
 	GetByID(ctx context.Context, id uuid.UUID) (*RecurringRule, error)
@@ -57,19 +58,19 @@ func NewRecurringRuleRepository(pool *pgxpool.Pool) RecurringRuleRepository {
 	return &recurringRuleRepository{pool: pool}
 }
 
-func (r *recurringRuleRepository) Create(ctx context.Context, userID uuid.UUID, rrule string) (*RecurringRule, error) {
+func (r *recurringRuleRepository) Create(ctx context.Context, userID uuid.UUID, title, rrule string) (*RecurringRule, error) {
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO recurring_rules (user_id, rrule)
-		VALUES ($1, $2)
-		RETURNING id, user_id, rrule, is_active, created_at, updated_at`,
-		userID, rrule,
+		INSERT INTO recurring_rules (user_id, title, rrule)
+		VALUES ($1, $2, $3)
+		RETURNING id, user_id, title, rrule, is_active, created_at, updated_at`,
+		userID, title, rrule,
 	)
 	return scanRule(row)
 }
 
 func (r *recurringRuleRepository) GetByID(ctx context.Context, id uuid.UUID) (*RecurringRule, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, user_id, rrule, is_active, created_at, updated_at
+		SELECT id, user_id, title, rrule, is_active, created_at, updated_at
 		FROM recurring_rules WHERE id = $1`,
 		id,
 	)
@@ -85,7 +86,7 @@ func (r *recurringRuleRepository) GetByID(ctx context.Context, id uuid.UUID) (*R
 
 func (r *recurringRuleRepository) ListActive(ctx context.Context) ([]*RecurringRule, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, user_id, rrule, is_active, created_at, updated_at
+		SELECT id, user_id, title, rrule, is_active, created_at, updated_at
 		FROM recurring_rules
 		WHERE is_active = TRUE`)
 	if err != nil {
@@ -96,7 +97,7 @@ func (r *recurringRuleRepository) ListActive(ctx context.Context) ([]*RecurringR
 	var rules []*RecurringRule
 	for rows.Next() {
 		var rule RecurringRule
-		if err := rows.Scan(&rule.ID, &rule.UserID, &rule.RRule, &rule.IsActive, &rule.CreatedAt, &rule.UpdatedAt); err != nil {
+		if err := rows.Scan(&rule.ID, &rule.UserID, &rule.Title, &rule.RRule, &rule.IsActive, &rule.CreatedAt, &rule.UpdatedAt); err != nil {
 			return nil, err
 		}
 		rules = append(rules, &rule)
@@ -133,7 +134,7 @@ func scanRule(row interface {
 	Scan(dest ...any) error
 }) (*RecurringRule, error) {
 	var rule RecurringRule
-	err := row.Scan(&rule.ID, &rule.UserID, &rule.RRule, &rule.IsActive, &rule.CreatedAt, &rule.UpdatedAt)
+	err := row.Scan(&rule.ID, &rule.UserID, &rule.Title, &rule.RRule, &rule.IsActive, &rule.CreatedAt, &rule.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

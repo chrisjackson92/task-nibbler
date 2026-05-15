@@ -26,10 +26,11 @@ func newMockRuleRepo() *mockRuleRepo {
 	return &mockRuleRepo{rules: make(map[uuid.UUID]*repositories.RecurringRule)}
 }
 
-func (m *mockRuleRepo) Create(_ context.Context, userID uuid.UUID, rrule string) (*repositories.RecurringRule, error) {
+func (m *mockRuleRepo) Create(_ context.Context, userID uuid.UUID, title, rrule string) (*repositories.RecurringRule, error) {
 	rule := &repositories.RecurringRule{
 		ID:        uuid.New(),
 		UserID:    userID,
+		Title:     title,
 		RRule:     rrule,
 		IsActive:  true,
 		CreatedAt: time.Now(),
@@ -288,7 +289,7 @@ func TestUpdateScoped_ThisAndFuture_DeletesFuturePending(t *testing.T) {
 	userID := uuid.New()
 
 	// Create a rule
-	rule, _ := ruleRepo.Create(context.Background(), userID, "FREQ=DAILY;INTERVAL=1")
+	rule, _ := ruleRepo.Create(context.Background(), userID, "Daily", "FREQ=DAILY;INTERVAL=1")
 
 	// Seed the anchor task (today)
 	now := time.Now().UTC()
@@ -374,7 +375,7 @@ func TestDeleteScoped_ThisAndFuture_DeactivatesRuleAndDeletesFuture(t *testing.T
 	svc := services.NewRecurringService(taskRepo, ruleRepo)
 
 	userID := uuid.New()
-	rule, _ := ruleRepo.Create(context.Background(), userID, "FREQ=DAILY")
+	rule, _ := ruleRepo.Create(context.Background(), userID, "Standup", "FREQ=DAILY")
 
 	now := time.Now().UTC()
 	anchor := &repositories.Task{
@@ -398,6 +399,8 @@ func TestDeleteScoped_ThisAndFuture_DeactivatesRuleAndDeletesFuture(t *testing.T
 	assert.True(t, taskRepo.deletedFutureCalled, "DeleteFuturePending must be called")
 	_, futureGone := taskRepo.tasks[futurePending.ID]
 	assert.False(t, futureGone, "future PENDING instance must be deleted")
+	_, anchorGone := taskRepo.tasks[anchor.ID]
+	assert.False(t, anchorGone, "anchor task must also be deleted for scope=this_and_future (Finding #3)")
 }
 
 func TestDeleteScoped_ScopeAbsent_Returns422(t *testing.T) {

@@ -85,8 +85,8 @@ func (s *recurringService) CreateRecurring(ctx context.Context, userID uuid.UUID
 		return nil, apierr.New(422, "INVALID_RRULE", fmt.Sprintf("invalid rrule: %s", err.Error()))
 	}
 
-	// Create the rule row first
-	rule, err := s.ruleRepo.Create(ctx, userID, req.RRule)
+	// Create the rule row first (stores title so nightly expansion can populate task instances)
+	rule, err := s.ruleRepo.Create(ctx, userID, req.Title, req.RRule)
 	if err != nil {
 		return nil, fmt.Errorf("recurring_service.CreateRecurring ruleCreate: %w", err)
 	}
@@ -218,9 +218,15 @@ func (s *recurringService) DeleteScoped(ctx context.Context, taskID, userID uuid
 		return fmt.Errorf("recurring_service.DeleteScoped deactivate: %w", err)
 	}
 
-	// 2. Delete all PENDING instances from this date onwards
+	// 2. Delete all PENDING instances after the anchor's start_at (strictly future)
 	if err := s.taskRepo.DeleteFuturePending(ctx, *task.RecurringRuleID, fromDate); err != nil {
 		return fmt.Errorf("recurring_service.DeleteScoped deleteFuture: %w", err)
+	}
+
+	// 3. Delete the anchor task itself (Finding #3 — AUD-006-BE).
+	//    "Delete this and all future" universally implies the selected occurrence is removed too.
+	if err := s.taskRepo.Delete(ctx, taskID, userID); err != nil && err != repositories.ErrNotFound {
+		return fmt.Errorf("recurring_service.DeleteScoped deleteAnchor: %w", err)
 	}
 
 	return nil

@@ -6,8 +6,16 @@ import (
 	"time"
 
 	"github.com/chrisjackson92/task-nibbler/backend/internal/repositories"
+	"github.com/google/uuid"
 	rrulego "github.com/teambition/rrule-go"
 )
+
+// userTzReader is a minimal interface for reading a user's IANA timezone.
+// Defined in the consumer package per GOV-010 §6.1 (Finding #2 — AUD-006-BE).
+// *repositories.UserRepository satisfies this interface.
+type userTzReader interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*repositories.User, error)
+}
 
 // RecurringExpansionJob expands all active recurring rules for the next 30 days.
 // It is idempotent: re-running on the same night creates no duplicate instances
@@ -17,14 +25,14 @@ import (
 type RecurringExpansionJob struct {
 	ruleRepo repositories.RecurringRuleRepository
 	taskRepo repositories.TaskRepository
-	userRepo *repositories.UserRepository
+	userRepo userTzReader // interface — enables in-process testing without a real DB
 }
 
 // NewRecurringExpansionJob creates a RecurringExpansionJob.
 func NewRecurringExpansionJob(
 	ruleRepo repositories.RecurringRuleRepository,
 	taskRepo repositories.TaskRepository,
-	userRepo *repositories.UserRepository,
+	userRepo userTzReader,
 ) *RecurringExpansionJob {
 	return &RecurringExpansionJob{
 		ruleRepo: ruleRepo,
@@ -111,7 +119,7 @@ func (j *RecurringExpansionJob) expandRule(ctx context.Context, rule *repositori
 		task, err := j.taskRepo.CreateIfNotExists(ctx, repositories.CreateTaskParams{
 			UserID:          rule.UserID,
 			RecurringRuleID: &ruleID,
-			Title:           "", // Title stored in rule? No — see note below *
+			Title:           rule.Title, // sourced from recurring_rules.title (Finding #1 — AUD-006-BE)
 			Priority:        repositories.PriorityMedium,
 			TaskType:        repositories.TaskTypeRecurring,
 			SortOrder:       0,

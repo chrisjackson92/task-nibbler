@@ -53,3 +53,4 @@ logs/
 
 # ─── Local Go toolchain (installed locally for development) ───────────────────
 go-dist/
+tools/

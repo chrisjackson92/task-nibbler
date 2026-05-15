@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/api/models/task_models.dart';
+import '../../../core/di/injection.dart';
+import '../../attachments/bloc/attachment_cubit.dart';
+import '../../attachments/ui/widgets/attachment_list_widget.dart';
 import '../bloc/task_list_bloc.dart';
 
 final _dateFormat = DateFormat('MMM d, y • h:mm a');
@@ -36,99 +39,98 @@ class TaskDetailScreen extends StatelessWidget {
             ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          // Title + priority badge
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  task.title,
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.bold),
+      body: BlocProvider<AttachmentCubit>(
+        create: (_) => AttachmentCubit(
+          taskId: task.id,
+          repository: Injection.instance.attachmentRepository,
+        ),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            // Title + priority badge
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    task.title,
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ),
+                const SizedBox(width: 12),
+                _PriorityBadge(priority: task.priority),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Status + type chips
+            Wrap(
+              spacing: 8,
+              children: [
+                _StatusBadge(status: task.status),
+                _TypeBadge(type: task.taskType),
+              ],
+            ),
+            const Divider(height: 32),
+
+            // Description
+            if (task.description != null && task.description!.isNotEmpty) ...[
+              _DetailRow(
+                icon: Icons.notes_rounded,
+                label: 'Description',
+                content: task.description!,
               ),
-              const SizedBox(width: 12),
-              _PriorityBadge(priority: task.priority),
+              const SizedBox(height: 16),
             ],
-          ),
-          const SizedBox(height: 12),
 
-          // Status + type chips
-          Wrap(
-            spacing: 8,
-            children: [
-              _StatusBadge(status: task.status),
-              _TypeBadge(type: task.taskType),
+            // Address
+            if (task.address != null && task.address!.isNotEmpty) ...[
+              _DetailRow(
+                icon: Icons.location_on_outlined,
+                label: 'Address',
+                content: task.address!,
+              ),
+              const SizedBox(height: 16),
             ],
-          ),
-          const Divider(height: 32),
 
-          // Description
-          if (task.description != null && task.description!.isNotEmpty) ...[
-            _DetailRow(
-              icon: Icons.notes_rounded,
-              label: 'Description',
-              content: task.description!,
-            ),
-            const SizedBox(height: 16),
+            // Dates
+            if (task.startAt != null)
+              _DetailRow(
+                icon: Icons.play_arrow_outlined,
+                label: 'Starts',
+                content: _dateFormat.format(task.startAt!.toLocal()),
+              ),
+            if (task.endAt != null) ...[
+              const SizedBox(height: 12),
+              _DueDateRow(task: task),
+            ],
+
+            if (task.completedAt != null) ...[
+              const SizedBox(height: 12),
+              _DetailRow(
+                icon: Icons.check_circle_outline_rounded,
+                label: 'Completed',
+                content: _dateFormat.format(task.completedAt!.toLocal()),
+              ),
+            ],
+            if (task.cancelledAt != null) ...[
+              const SizedBox(height: 12),
+              _DetailRow(
+                icon: Icons.cancel_outlined,
+                label: 'Cancelled',
+                content: _dateFormat.format(task.cancelledAt!.toLocal()),
+              ),
+            ],
+
+            const Divider(height: 32),
+
+            // Live attachment section (SPR-003-MB M-026)
+            AttachmentListWidget(taskId: task.id),
+
+            const SizedBox(height: 24),
           ],
-
-          // Address
-          if (task.address != null && task.address!.isNotEmpty) ...[
-            _DetailRow(
-              icon: Icons.location_on_outlined,
-              label: 'Address',
-              content: task.address!,
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Dates
-          if (task.startAt != null)
-            _DetailRow(
-              icon: Icons.play_arrow_outlined,
-              label: 'Starts',
-              content: _dateFormat.format(task.startAt!.toLocal()),
-            ),
-          if (task.endAt != null) ...[
-            const SizedBox(height: 12),
-            _DueDateRow(task: task),
-          ],
-
-          if (task.completedAt != null) ...[
-            const SizedBox(height: 12),
-            _DetailRow(
-              icon: Icons.check_circle_outline_rounded,
-              label: 'Completed',
-              content: _dateFormat.format(task.completedAt!.toLocal()),
-            ),
-          ],
-          if (task.cancelledAt != null) ...[
-            const SizedBox(height: 12),
-            _DetailRow(
-              icon: Icons.cancel_outlined,
-              label: 'Cancelled',
-              content: _dateFormat.format(task.cancelledAt!.toLocal()),
-            ),
-          ],
-
-          const Divider(height: 32),
-
-          // Attachments count (tappable in SPR-003-MB)
-          _DetailRow(
-            icon: Icons.attach_file_rounded,
-            label: 'Attachments',
-            content: '${task.attachmentCount} file${task.attachmentCount == 1 ? '' : 's'}',
-            trailing: task.attachmentCount > 0
-                ? const Icon(Icons.chevron_right_rounded)
-                : null,
-          ),
-
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
       // Complete button — only for pending, online tasks.
       bottomNavigationBar: task.status == TaskStatus.pending && !isOffline

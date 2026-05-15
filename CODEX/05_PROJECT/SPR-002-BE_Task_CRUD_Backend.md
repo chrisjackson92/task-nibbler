@@ -2,16 +2,16 @@
 id: SPR-002-BE
 title: "Sprint 2 — Task CRUD Backend"
 type: sprint
-status: BLOCKED
+status: READY
 assignee: coder
 agent_boot: AGT-002-BE_Backend_Developer_Agent.md
 sprint_number: 2
 track: backend
 estimated_days: 4
-blocked_by: SPR-001-BE (must pass Architect audit)
+blocked_by: "None — SPR-001-BE audit PASSED (AUD-001-BE). Human must merge branch to develop first."
 related: [BLU-002, BLU-003, CON-002]
 created: 2026-05-14
-updated: 2026-05-14
+updated: 2026-05-15
 ---
 
 > **BLUF:** Implement full Task CRUD with status model, filter/sort, overdue detection, sort-order management, gamification state initialisation, and the task completion endpoint. By the end, all task endpoints work, gamification state row is created on register, and task completion updates streak + tree health.
@@ -22,7 +22,8 @@ updated: 2026-05-14
 
 ## Pre-Conditions
 
-- [ ] `SPR-001-BE` Architect audit PASSED
+- [x] `SPR-001-BE` Architect audit PASSED (AUD-001-BE — APPROVED_WITH_NOTES 2026-05-15)
+- [x] Human must merge `feature/B-001-backend-scaffold` → `develop` and fork from `develop`
 - [ ] Read `CON-002_API_Contract.md` §3 (Task routes) in full
 - [ ] Read `BLU-002_Database_Schema.md` §§3.4–3.5, 3.7 (recurring_rules, tasks, gamification_state)
 

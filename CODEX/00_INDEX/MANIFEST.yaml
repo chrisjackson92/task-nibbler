@@ -269,6 +269,33 @@ documents:
       Covers: no full repo walks, GIT_TERMINAL_PROMPT=0, WaitMsBeforeAsync
       reference table, kill-before-retry, and outcome verification over process status.
 
+  - id: GOV-010
+    path: 10_GOVERNANCE/GOV-010_Go_Backend_Best_Practices.md
+    title: "Go Backend Best Practices — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [coding, standards, governance, go, gin, sqlc, pgx, backend]
+    agents: [coder, tester]
+    summary: >
+      Stack-specific best practices for Go + Gin + sqlc + pgx + goose. Covers
+      error wrapping, pgx.ErrNoRows mapping, layer contract enforcement, sqlc
+      nullable types, interface design, table-driven testing, goroutine safety,
+      graceful shutdown, and project naming conventions.
+
+  - id: GOV-011
+    path: 10_GOVERNANCE/GOV-011_Flutter_Mobile_Best_Practices.md
+    title: "Flutter Mobile Best Practices — Task Nibbles"
+    type: reference
+    status: APPROVED
+    tags: [coding, standards, governance, flutter, dart, bloc, dio, hive, mobile]
+    agents: [coder, tester]
+    summary: >
+      Stack-specific best practices for Flutter + BLoC + Dio + Hive + Rive.
+      Covers BLoC vs Cubit decision matrix, immutable state with Equatable,
+      const constructors, buildWhen optimisation, Dio silent refresh locking,
+      Hive box isolation, Rive RepaintBoundary, sealed classes, golden tests,
+      and iOS/Android platform permission requirements.
+
   # ── 20_BLUEPRINTS ──────────────────────────────────────────────────────────
   - id: BLU-020
     path: 20_BLUEPRINTS/BLU-020_CODEX_System_Blueprint.md
@@ -576,7 +603,7 @@ documents:
     path: 05_PROJECT/SPR-002-BE_Task_CRUD_Backend.md
     title: "Sprint 2 — Task CRUD Backend"
     type: sprint
-    status: BLOCKED
+    status: READY
     tags: [sprint, backend, tasks, crud]
     agents: [coder]
     summary: >
@@ -685,4 +712,17 @@ documents:
       release_command migration pattern, GitHub Actions workflows for auto-deploy
       to staging (develop push) and production (main + Human approval gate),
       all secrets setup, custom domain api.tasknibbles.com + TLS, rollback testing.
+
+  - id: PLN-001
+    path: 05_PROJECT/PLN-001_Sprint_Planning_2026-05-15.md
+    title: "Architect Sprint Planning — 2026-05-15"
+    type: planning
+    status: DRAFT
+    tags: [project-management, sprint-planning, architect]
+    agents: [architect]
+    summary: >
+      Architect sprint planning record for 2026-05-15. Full project state
+      assessment (git branch state, codebase reality vs. BCK-001, BCK-002
+      reconciliation), sprint dependency graph, human gating actions, and
+      developer hand-off briefs for SPR-002-BE and SPR-001-MB.
 

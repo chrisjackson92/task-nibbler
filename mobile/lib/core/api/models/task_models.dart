@@ -409,22 +409,27 @@ class BadgeAward extends Equatable {
     required this.name,
     required this.emoji,
     required this.description,
+    this.awardedAt,
   });
 
   final String id;
   final String name;
   final String emoji;
   final String description;
+  final DateTime? awardedAt;
 
   factory BadgeAward.fromJson(Map<String, dynamic> json) => BadgeAward(
         id: json['id'] as String,
         name: json['name'] as String,
         emoji: json['emoji'] as String,
         description: json['description'] as String,
+        awardedAt: json['awarded_at'] != null
+            ? DateTime.parse(json['awarded_at'] as String)
+            : null,
       );
 
   @override
-  List<Object?> get props => [id, name, emoji, description];
+  List<Object?> get props => [id, name, emoji, description, awardedAt];
 }
 
 class GamificationDelta extends Equatable {

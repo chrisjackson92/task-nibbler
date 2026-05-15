@@ -87,7 +87,7 @@ void main() {
     // Default: online
     when(() => mockConnectivity.state).thenReturn(ConnectivityStatus.connected);
     // Default gamification state
-    when(() => mockGamification.state).thenReturn(const GamificationWelcome());
+    when(() => mockGamification.state).thenReturn(const GamificationInitial());
     // Default: saveTasks no-op
     when(() => mockCache.saveTasks(any())).thenAnswer((_) async {});
   });

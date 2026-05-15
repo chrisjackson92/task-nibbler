@@ -45,7 +45,10 @@ class TaskNibblesApp extends StatelessWidget {
         ],
         child: Builder(
           builder: (context) {
-            final router = createRouter(injection.navigatorKey);
+            final router = createRouter(
+              authBloc: injection.authBloc,
+              navigatorKey: injection.navigatorKey,
+            );
             return MaterialApp.router(
               title: 'Task Nibbles',
               theme: appTheme,

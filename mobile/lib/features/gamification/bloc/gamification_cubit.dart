@@ -1,5 +1,7 @@
-import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:equatable/equatable.dart';
+
+import '../../../core/api/models/task_models.dart';
 
 // ──────────────────────────────────────────────
 // State
@@ -7,53 +9,72 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 sealed class GamificationState extends Equatable {
   const GamificationState();
+}
+
+/// Shown until first task is completed (PRJ-001 §5.5).
+class GamificationWelcome extends GamificationState {
+  const GamificationWelcome();
+
   @override
   List<Object?> get props => [];
 }
 
-/// Welcome state — user hasn't completed their first task yet.
-final class GamificationWelcome extends GamificationState {
-  const GamificationWelcome();
-}
-
-/// Sprint 1 placeholder for loaded gamification state.
-final class GamificationLoaded extends GamificationState {
+/// Emitted once real data is available — either from a complete response
+/// (SPR-002-MB) or from the gamification API (SPR-004-MB).
+class GamificationLoaded extends GamificationState {
   const GamificationLoaded({
     required this.streakCount,
     required this.treeHealthScore,
-    required this.treeState,
-    required this.spriteState,
     required this.graceActive,
+    required this.earnedBadges,
   });
 
   final int streakCount;
   final int treeHealthScore;
-  final String treeState;
-  final String spriteState;
   final bool graceActive;
+  final List<BadgeAward> earnedBadges;
 
   @override
-  List<Object?> get props => [
-        streakCount,
-        treeHealthScore,
-        treeState,
-        spriteState,
-        graceActive,
-      ];
+  List<Object?> get props =>
+      [streakCount, treeHealthScore, graceActive, earnedBadges];
 }
 
 // ──────────────────────────────────────────────
-// Cubit (M-013)
+// Cubit
 // ──────────────────────────────────────────────
 
-/// Sprint 1: emits [GamificationWelcome] only.
-/// Real gamification data fetch is implemented in SPR-004-MB.
-/// Interface is correct — just swap the placeholder for a real API call later.
+/// Manages the gamification hero section state.
+///
+/// Sprint 1–3: starts in [GamificationWelcome].
+/// [applyDelta] updates to [GamificationLoaded] after any task completion.
+/// Sprint 4: `refresh()` will call GET /gamification to hydrate on app boot.
 class GamificationCubit extends Cubit<GamificationState> {
   GamificationCubit() : super(const GamificationWelcome());
 
-  /// Called when gamification data should be refreshed (Sprint 4 implementation).
-  Future<void> refresh() async {
-    // Sprint 1: no-op. Sprint 4: call GET /gamification/state.
+  /// Called by [TaskListBloc] after a successful `POST /tasks/:id/complete`.
+  /// Transitions from WELCOME → LOADED on first completion.
+  void applyDelta(GamificationDelta delta) {
+    final current = state;
+    final existingBadges = current is GamificationLoaded
+        ? current.earnedBadges
+        : <BadgeAward>[];
+
+    // Merge newly awarded badges into accumulated badge list (deduplicated).
+    final merged = [
+      ...existingBadges,
+      ...delta.badgesAwarded.where(
+        (b) => !existingBadges.any((e) => e.id == b.id),
+      ),
+    ];
+
+    emit(GamificationLoaded(
+      streakCount: delta.streakCount,
+      treeHealthScore: delta.treeHealthScore,
+      graceActive: delta.graceActive,
+      earnedBadges: merged,
+    ));
   }
+
+  /// No-op stub until Sprint 4 implements the gamification API endpoint.
+  Future<void> refresh() async {}
 }

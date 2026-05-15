@@ -115,10 +115,6 @@ class AuthInterceptor extends Interceptor {
       final response = await dio.post<Map<String, dynamic>>(
         '/api/v1/auth/refresh',
         data: RefreshRequest(refreshToken: refreshToken).toJson(),
-        options: Options(
-          // Skip this interceptor to avoid recursive loop.
-          extra: {'skipAuthInterceptor': true},
-        ),
       );
 
       final parsed = RefreshResponse.fromJson(response.data!);

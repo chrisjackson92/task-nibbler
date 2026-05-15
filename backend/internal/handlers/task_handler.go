@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/chrisjackson92/task-nibbler/backend/internal/apierr"
@@ -66,11 +67,12 @@ func (h *TaskHandler) List(c *gin.Context) {
 	}
 
 	if v := c.Query("status"); v != "" {
+		v = strings.ToUpper(v) // normalize: accept 'pending' or 'PENDING' (Finding #1)
 		// "overdue" is a virtual status — the service handles it
-		if v != "overdue" {
+		if v != "OVERDUE" {
 			s := repositories.TaskStatus(v)
 			if s != repositories.TaskStatusPending && s != repositories.TaskStatusCompleted && s != repositories.TaskStatusCancelled {
-				c.Error(apierr.New(422, "VALIDATION_ERROR", "invalid status value"))
+				_ = c.Error(apierr.New(422, "VALIDATION_ERROR", "invalid status value"))
 				return
 			}
 			filter.Status = &s
@@ -80,10 +82,12 @@ func (h *TaskHandler) List(c *gin.Context) {
 		}
 	}
 	if v := c.Query("priority"); v != "" {
+		v = strings.ToUpper(v) // normalize
 		p := repositories.Priority(v)
 		filter.Priority = &p
 	}
 	if v := c.Query("type"); v != "" {
+		v = strings.ToUpper(v) // normalize
 		t := repositories.TaskType(v)
 		filter.Type = &t
 	}

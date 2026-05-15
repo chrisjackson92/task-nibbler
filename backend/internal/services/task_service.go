@@ -246,8 +246,9 @@ func (s *taskService) DeleteTask(ctx context.Context, id, userID uuid.UUID) erro
 // CANCELLED tasks must already be filtered out by the repository (UPDATE WHERE status='PENDING').
 func (s *taskService) CompleteTask(ctx context.Context, id, userID uuid.UUID) (*CompleteTaskResponse, error) {
 	task, err := s.tasks.Complete(ctx, id, userID)
-	if errors.Is(err, repositories.ErrNotFound) {
-		// Could be task not found OR already completed/cancelled
+	if errors.Is(err, repositories.ErrNotFound) || errors.Is(err, repositories.ErrConflict) {
+		// ErrNotFound  = task doesn't belong to this user
+		// ErrConflict  = task already completed or cancelled (status != PENDING)
 		return nil, apierr.New(409, "TASK_ALREADY_RESOLVED", "task is already completed or cancelled")
 	}
 	if err != nil {
@@ -257,7 +258,7 @@ func (s *taskService) CompleteTask(ctx context.Context, id, userID uuid.UUID) (*
 	// Trigger gamification — non-fatal on error (log + return empty delta)
 	delta, err := s.gamify.OnTaskCompleted(ctx, userID)
 	if err != nil {
-		slog.Error("gamification update failed", "user_id", userID, "err", err)
+		slog.ErrorContext(ctx, "gamification update failed", "user_id", userID, "err", err) // GOV-010 §2.2
 		delta = &GamificationDelta{}
 	}
 

@@ -9,7 +9,7 @@ import (
 )
 
 // ────────────────────────────────────────────────────────────────────────────
-// Badge catalog (static — not stored, just checked against)
+// Badge catalog (static — not stored in DB for this sprint)
 // ────────────────────────────────────────────────────────────────────────────
 
 // Badge represents a gamification badge as returned by CON-002 §3.
@@ -22,11 +22,11 @@ type Badge struct {
 
 // GamificationDelta is the response block returned by POST /tasks/:id/complete.
 type GamificationDelta struct {
-	StreakCount       int     `json:"streak_count"`
-	TreeHealthScore   int     `json:"tree_health_score"`
-	TreeHealthDelta   int     `json:"tree_health_delta"`
-	GraceActive       bool    `json:"grace_active"`
-	BadgesAwarded     []Badge `json:"badges_awarded"`
+	StreakCount     int     `json:"streak_count"`
+	TreeHealthScore int     `json:"tree_health_score"`
+	TreeHealthDelta int     `json:"tree_health_delta"`
+	GraceActive     bool    `json:"grace_active"`
+	BadgesAwarded   []Badge `json:"badges_awarded"`
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -43,21 +43,24 @@ type GamificationService interface {
 // ────────────────────────────────────────────────────────────────────────────
 
 type gamificationService struct {
-	repo *repositories.GamificationRepository
+	repo repositories.GamificationStateReader
 }
 
-// NewGamificationService creates a GamificationService backed by the repo.
-func NewGamificationService(repo *repositories.GamificationRepository) GamificationService {
+// NewGamificationService creates a GamificationService.
+// repo must satisfy repositories.GamificationStateReader (satisfied by *repositories.GamificationRepository).
+// Using the interface makes the service testable without a real pgx pool (B-058).
+func NewGamificationService(repo repositories.GamificationStateReader) GamificationService {
 	return &gamificationService{repo: repo}
 }
 
 // OnTaskCompleted applies gamification state changes when any task is completed.
-// Logic:
+// Logic (SPR-002-BE partial scope — grace day + full badge engine in SPR-004-BE):
 //  1. Load current state
-//  2. Increment streak if last_active_date != today UTC
-//  3. Persist updated state (tree_health +5 capped at 100 is done in the DB)
-//  4. Evaluate instant badges: FIRST_NIBBLE, STREAK_7, STREAK_14, STREAK_30
-//  5. Return delta block per CON-002 §3 schema
+//  2. Snapshot prev scalar fields BEFORE UpdateOnComplete (repo may return the same pointer)
+//  3. Increment streak if last_active_date != today UTC
+//  4. Persist updated state (tree_health +5 capped at 100 done in DB via LEAST)
+//  5. Evaluate instant badges against snapshotted prev values
+//  6. Return delta block per CON-002 §3 schema
 func (s *gamificationService) OnTaskCompleted(ctx context.Context, userID uuid.UUID) (*GamificationDelta, error) {
 	gs, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
@@ -67,14 +70,20 @@ func (s *gamificationService) OnTaskCompleted(ctx context.Context, userID uuid.U
 	todayUTC := time.Now().UTC().Truncate(24 * time.Hour)
 	prevHealth := int(gs.TreeHealthScore)
 
-	// Calculate new streak
-	newStreak := int(gs.StreakCount)
+	// --- Snapshot scalar prev values BEFORE UpdateOnComplete ---
+	// The repository mock (and some production paths) may mutate the same struct
+	// pointer that GetByUserID returned. Reading gs.StreakCount after UpdateOnComplete
+	// would give the already-incremented value, breaking badge threshold detection.
+	prevStreak := int(gs.StreakCount)
+	prevHasCompletedFirst := gs.HasCompletedFirstTask
+
+	// Calculate new streak (idempotent: same day = no increment)
+	newStreak := prevStreak
 	if gs.LastActiveDate == nil || gs.LastActiveDate.UTC().Truncate(24*time.Hour).Before(todayUTC) {
 		newStreak++
 	}
-	// If already completed today, streak stays the same (idempotent)
 
-	// Persist update
+	// Persist update — DB handles LEAST(tree_health_score + 5, 100)
 	updated, err := s.repo.UpdateOnComplete(ctx, userID, newStreak, todayUTC)
 	if err != nil {
 		return nil, err
@@ -83,25 +92,26 @@ func (s *gamificationService) OnTaskCompleted(ctx context.Context, userID uuid.U
 	newHealth := int(updated.TreeHealthScore)
 	healthDelta := newHealth - prevHealth
 
-	// Evaluate instant badges
-	badges := evaluateBadges(updated, gs)
+	// Evaluate instant badges using snapshotted prev values (not gs, which may be mutated)
+	badges := evaluateBadges(updated, prevStreak, prevHasCompletedFirst)
 
 	return &GamificationDelta{
 		StreakCount:     newStreak,
 		TreeHealthScore: newHealth,
 		TreeHealthDelta: healthDelta,
-		GraceActive:     false, // grace day logic deferred to SPR-004-BE
+		GraceActive:     false, // grace day logic in SPR-004-BE
 		BadgesAwarded:   badges,
 	}, nil
 }
 
 // evaluateBadges checks which instant badges are newly unlocked by this completion.
-// Only badges that were NOT previously earned are returned.
-func evaluateBadges(updated, prev *repositories.GamificationState) []Badge {
+// prevStreak and prevHasCompletedFirst are scalar snapshots taken before UpdateOnComplete,
+// ensuring correct threshold detection even when the repo returns the same pointer.
+func evaluateBadges(updated *repositories.GamificationState, prevStreak int, prevHasCompletedFirst bool) []Badge {
 	var awarded []Badge
 
 	// FIRST_NIBBLE — first task ever completed
-	if !prev.HasCompletedFirstTask {
+	if !prevHasCompletedFirst {
 		awarded = append(awarded, Badge{
 			ID:          "FIRST_NIBBLE",
 			Name:        "First Nibble",
@@ -113,7 +123,7 @@ func evaluateBadges(updated, prev *repositories.GamificationState) []Badge {
 	streak := int(updated.StreakCount)
 
 	// STREAK_7
-	if streak >= 7 && int(prev.StreakCount) < 7 {
+	if streak >= 7 && prevStreak < 7 {
 		awarded = append(awarded, Badge{
 			ID:          "STREAK_7",
 			Name:        "Week Warrior",
@@ -123,7 +133,7 @@ func evaluateBadges(updated, prev *repositories.GamificationState) []Badge {
 	}
 
 	// STREAK_14
-	if streak >= 14 && int(prev.StreakCount) < 14 {
+	if streak >= 14 && prevStreak < 14 {
 		awarded = append(awarded, Badge{
 			ID:          "STREAK_14",
 			Name:        "Fortnight Fighter",
@@ -133,7 +143,7 @@ func evaluateBadges(updated, prev *repositories.GamificationState) []Badge {
 	}
 
 	// STREAK_30
-	if streak >= 30 && int(prev.StreakCount) < 30 {
+	if streak >= 30 && prevStreak < 30 {
 		awarded = append(awarded, Badge{
 			ID:          "STREAK_30",
 			Name:        "Monthly Master",
@@ -143,7 +153,7 @@ func evaluateBadges(updated, prev *repositories.GamificationState) []Badge {
 	}
 
 	if awarded == nil {
-		awarded = []Badge{} // return empty slice, not nil, so JSON serialises as []
+		awarded = []Badge{} // never return nil — JSON must serialize as []
 	}
 	return awarded
 }

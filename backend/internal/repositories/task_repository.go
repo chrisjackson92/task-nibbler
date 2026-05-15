@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -204,36 +205,63 @@ func (r *taskRepository) List(ctx context.Context, userID uuid.UUID, f ListTasks
 	}
 	offset := (f.Page - 1) * f.PerPage
 
-	sort := f.Sort
-	if sort == "" {
-		sort = "sort_order"
-	}
-	order := f.Order
-	if order == "" {
-		order = "asc"
+	// Dynamic ORDER BY — whitelist prevents SQL injection (B-057, AUD-002-BE Finding #2).
+	// The column expression and direction come only from the whitelist below, never from raw user input.
+	orderCol := resolveOrderColumn(f.Sort)
+	orderDir := "ASC"
+	if f.Order == "desc" || f.Order == "DESC" {
+		orderDir = "DESC"
 	}
 
-	// Count total for pagination metadata
+	// For the "overdue" virtual status: run a dedicated count with end_at < now().
+	// Previously the count passed no overdue condition to the DB, causing meta.total
+	// to reflect all PENDING tasks rather than just overdue ones (B-057 sub-finding).
+	isOverdue := f.Status != nil && *f.Status == "overdue"
+
 	var total int64
-	err := r.pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM tasks
-		WHERE user_id = $1
-		  AND ($2::task_status IS NULL OR status = $2)
-		  AND ($3::task_priority IS NULL OR priority = $3)
-		  AND ($4::task_type IS NULL OR task_type = $4)
-		  AND ($5::timestamptz IS NULL OR end_at >= $5)
-		  AND ($6::timestamptz IS NULL OR end_at <= $6)
-		  AND ($7::text IS NULL OR
-			    to_tsvector('english', title || ' ' || COALESCE(description,'')) @@
-			    plainto_tsquery('english', $7))`,
-		userID, statusArg(f.Status), priorityArg(f.Priority), typeArg(f.Type),
-		f.From, f.To, f.Search,
-	).Scan(&total)
-	if err != nil {
-		return nil, err
+	if isOverdue {
+		err := r.pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM tasks
+			WHERE user_id = $1
+			  AND status = 'PENDING'
+			  AND end_at IS NOT NULL
+			  AND end_at < now()
+			  AND ($2::task_priority IS NULL OR priority = $2)
+			  AND ($3::task_type IS NULL OR task_type = $3)
+			  AND ($4::timestamptz IS NULL OR end_at >= $4)
+			  AND ($5::timestamptz IS NULL OR end_at <= $5)
+			  AND ($6::text IS NULL OR
+				    to_tsvector('english', title || ' ' || COALESCE(description,'')) @@
+				    plainto_tsquery('english', $6))`,
+			userID, priorityArg(f.Priority), typeArg(f.Type),
+			f.From, f.To, f.Search,
+		).Scan(&total)
+		if err != nil {
+			return nil, fmt.Errorf("task_repository.List count (overdue): %w", err)
+		}
+	} else {
+		err := r.pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM tasks
+			WHERE user_id = $1
+			  AND ($2::task_status IS NULL OR status = $2)
+			  AND ($3::task_priority IS NULL OR priority = $3)
+			  AND ($4::task_type IS NULL OR task_type = $4)
+			  AND ($5::timestamptz IS NULL OR end_at >= $5)
+			  AND ($6::timestamptz IS NULL OR end_at <= $6)
+			  AND ($7::text IS NULL OR
+				    to_tsvector('english', title || ' ' || COALESCE(description,'')) @@
+				    plainto_tsquery('english', $7))`,
+			userID, statusArg(f.Status), priorityArg(f.Priority), typeArg(f.Type),
+			f.From, f.To, f.Search,
+		).Scan(&total)
+		if err != nil {
+			return nil, fmt.Errorf("task_repository.List count: %w", err)
+		}
 	}
 
-	rows, err := r.pool.Query(ctx, `
+	// Main query — ORDER BY is built from whitelisted column + validated direction.
+	// fmt.Sprintf is safe here: orderCol and orderDir come only from the whitelist, not user input.
+	query := fmt.Sprintf(`
 		SELECT id, user_id, recurring_rule_id, title, description, address,
 		       priority, task_type, status, sort_order, is_detached,
 		       start_at, end_at, completed_at, cancelled_at, created_at, updated_at
@@ -247,13 +275,22 @@ func (r *taskRepository) List(ctx context.Context, userID uuid.UUID, f ListTasks
 		  AND ($7::text IS NULL OR
 			    to_tsvector('english', title || ' ' || COALESCE(description,'')) @@
 			    plainto_tsquery('english', $7))
-		ORDER BY sort_order ASC
-		LIMIT $8 OFFSET $9`,
-		userID, statusArg(f.Status), priorityArg(f.Priority), typeArg(f.Type),
+		ORDER BY %s %s
+		LIMIT $8 OFFSET $9`, orderCol, orderDir)
+
+	// For overdue: pass status=PENDING to DB; post-filter by IsOverdue (end_at < now()) in-memory.
+	statusFilter := f.Status
+	if isOverdue {
+		pending := TaskStatusPending
+		statusFilter = &pending
+	}
+
+	rows, err := r.pool.Query(ctx, query,
+		userID, statusArg(statusFilter), priorityArg(f.Priority), typeArg(f.Type),
 		f.From, f.To, f.Search, f.PerPage, offset,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("task_repository.List query: %w", err)
 	}
 	defer rows.Close()
 
@@ -263,12 +300,9 @@ func (r *taskRepository) List(ctx context.Context, userID uuid.UUID, f ListTasks
 		if err != nil {
 			return nil, err
 		}
-
-		// Apply overdue filter in-memory (status=PENDING + end_at is past)
-		if f.Status != nil && *f.Status == "overdue" {
-			if !t.IsOverdue {
-				continue
-			}
+		// Apply overdue in-memory post-filter (relies on enrichTask's IsOverdue field)
+		if isOverdue && !t.IsOverdue {
+			continue
 		}
 		tasks = append(tasks, t)
 	}
@@ -285,6 +319,31 @@ func (r *taskRepository) List(ctx context.Context, userID uuid.UUID, f ListTasks
 		TotalPages: totalPages,
 	}, nil
 }
+
+// resolveOrderColumn maps a user-supplied sort field name to a safe, whitelisted SQL expression.
+// Unknown values fall back to sort_order. Values are never interpolated raw from user input.
+func resolveOrderColumn(sort string) string {
+	switch sort {
+	case "due_date":
+		return "end_at"
+	case "priority":
+		// CASE expression imposes semantic order: CRITICAL > HIGH > MEDIUM > LOW
+		return `CASE priority
+			WHEN 'CRITICAL' THEN 1
+			WHEN 'HIGH'     THEN 2
+			WHEN 'MEDIUM'   THEN 3
+			WHEN 'LOW'      THEN 4
+			ELSE 5
+		END`
+	case "created_at":
+		return "created_at"
+	case "sort_order", "":
+		return "sort_order"
+	default:
+		return "sort_order" // safe fallback for any unrecognised value
+	}
+}
+
 
 func (r *taskRepository) Update(ctx context.Context, id, userID uuid.UUID, p UpdateTaskParams) (*Task, error) {
 	row := r.pool.QueryRow(ctx, `

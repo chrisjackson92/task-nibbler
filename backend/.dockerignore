@@ -28,8 +28,10 @@ fly.staging.toml
 # CI/CD (not needed inside the container)
 .github/
 
-# Documentation (not needed inside the container)
-docs/
+# Swagger generated assets — exclude JSON/YAML/HTML but NOT docs.go (it's a required Go import)
+docs/*.json
+docs/*.yaml
+docs/*.html
 
 # Air (hot reload dev tool — not needed in production)
 .air.toml

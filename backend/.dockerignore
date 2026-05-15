@@ -1,0 +1,36 @@
+# Task Nibbles — Docker Build Context Exclusions
+# Keep build context minimal for fast remote builds on Fly.io
+
+# Development artifacts
+.env
+.env.*
+*.env.local
+
+# Test artifacts and coverage reports
+**/*_test.go
+**/testdata/
+coverage.out
+coverage.html
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Go build cache (builder stage re-downloads dependencies)
+vendor/
+
+# Fly configuration (not needed inside the container)
+fly.toml
+fly.staging.toml
+
+# CI/CD (not needed inside the container)
+.github/
+
+# Documentation (not needed inside the container)
+docs/
+
+# Air (hot reload dev tool — not needed in production)
+.air.toml
+tmp/

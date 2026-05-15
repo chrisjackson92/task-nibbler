@@ -2,7 +2,7 @@
 id: SPR-002-MB
 title: "Sprint 2 — Task UI Mobile"
 type: sprint
-status: BLOCKED
+status: MERGED
 assignee: coder
 agent_boot: AGT-002-MB_Mobile_Developer_Agent.md
 sprint_number: 2

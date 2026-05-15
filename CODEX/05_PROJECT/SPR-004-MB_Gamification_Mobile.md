@@ -2,7 +2,7 @@
 id: SPR-004-MB
 title: "Sprint 4 — Gamification Mobile"
 type: sprint
-status: BLOCKED
+status: READY
 assignee: coder
 agent_boot: AGT-002-MB_Mobile_Developer_Agent.md
 sprint_number: 4

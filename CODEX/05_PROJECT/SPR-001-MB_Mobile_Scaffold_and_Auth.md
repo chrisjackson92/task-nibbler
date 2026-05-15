@@ -2,7 +2,7 @@
 id: SPR-001-MB
 title: "Sprint 1 — Mobile Scaffold & Auth"
 type: sprint
-status: READY
+status: MERGED
 assignee: coder
 agent_boot: AGT-002-MB_Mobile_Developer_Agent.md
 sprint_number: 1

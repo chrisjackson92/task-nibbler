@@ -2,7 +2,7 @@
 id: SPR-002-BE
 title: "Sprint 2 — Task CRUD Backend"
 type: sprint
-status: AUDITED_WITH_NOTES
+status: MERGED
 assignee: coder
 agent_boot: AGT-002-BE_Backend_Developer_Agent.md
 sprint_number: 2

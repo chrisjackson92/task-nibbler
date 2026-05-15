@@ -3,6 +3,8 @@
 .env.*
 *.env
 !*.env.example
+Credentials.txt
+credentials.txt
 
 # ─── Go (backend/) ────────────────────────────────────────────────────────────
 backend/bin/

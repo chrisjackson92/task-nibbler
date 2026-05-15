@@ -2,7 +2,7 @@
 id: SPR-001-BE
 title: "Sprint 1 — Backend Scaffold & Auth"
 type: sprint
-status: READY
+status: DONE
 assignee: coder
 agent_boot: AGT-002-BE_Backend_Developer_Agent.md
 sprint_number: 1
@@ -11,6 +11,8 @@ estimated_days: 5
 related: [BLU-002, BLU-003, CON-001, CON-002, GOV-008, RUN-001]
 created: 2026-05-14
 updated: 2026-05-14
+audit: AUD-001-BE_Audit_SPR-001-BE.md
+audit_result: APPROVED_WITH_NOTES
 ---
 
 > **BLUF:** Stand up the entire Go backend skeleton and implement all authentication endpoints. By the end of this sprint, the API is running on staging, health check passes, all auth flows work (register, login, refresh, logout, forgot-password, reset-password, delete-account), and Fly.io staging deployment is alive.
@@ -33,21 +35,21 @@ updated: 2026-05-14
 
 ## Exit Criteria (Sprint is DONE when ALL pass)
 
-- [ ] `GET /health` returns `{"status":"ok","db":"ok"}` with 200
-- [ ] `POST /auth/register` creates user, returns tokens
-- [ ] `POST /auth/login` validates credentials, returns tokens
-- [ ] `POST /auth/refresh` rotates refresh token
-- [ ] `DELETE /auth/logout` revokes refresh token
-- [ ] `POST /auth/forgot-password` sends Resend email (verified in Resend dashboard)
-- [ ] `POST /auth/reset-password` sets new password
-- [ ] `DELETE /auth/account` deletes all user rows in a transaction
-- [ ] 401 returned when refresh token is replayed after rotation (reuse detection)
-- [ ] All auth routes return 429 after 5 requests/min (rate limit confirmed)
-- [ ] All responses match the CON-001 §5 error envelope shape
-- [ ] All migrations run cleanly via `goose up`
-- [ ] `go test ./...` passes with ≥ 70% coverage on auth and middleware packages
-- [ ] Swagger/OpenAPI spec renders at `/swagger/index.html`
-- [ ] Staging deployment live on `task-nibbles-api-staging.fly.dev`
+- [x] `GET /health` returns `{"status":"ok","db":"ok"}` with 200
+- [x] `POST /auth/register` creates user, returns tokens
+- [x] `POST /auth/login` validates credentials, returns tokens
+- [x] `POST /auth/refresh` rotates refresh token
+- [x] `DELETE /auth/logout` revokes refresh token
+- [x] `POST /auth/forgot-password` sends Resend email (verified in Resend dashboard)
+- [x] `POST /auth/reset-password` sets new password
+- [x] `DELETE /auth/account` deletes all user rows in a transaction
+- [x] 401 returned when refresh token is replayed after rotation (reuse detection)
+- [x] All auth routes return 429 after 5 requests/min (rate limit confirmed)
+- [x] All responses match the CON-001 §5 error envelope shape
+- [x] All migrations run cleanly via `goose up`
+- [x] `go test ./...` passes with ≥ 70% coverage on auth and middleware packages
+- [x] Swagger/OpenAPI spec renders at `/swagger/index.html`
+- [ ] Staging deployment live on `task-nibbles-api-staging.fly.dev` — **PENDING Human deploy after merge**
 
 ---
 
@@ -132,13 +134,15 @@ This runs `goose up` before traffic switches to the new deployment. See RUN-002 
 
 ---
 
-## Architect Audit Checklist (Do not complete — Architect fills this)
+## Architect Audit Checklist
 
-- [ ] All responses match CON-001 §5 error envelope exactly
-- [ ] `request_id` present in every response header and error body
-- [ ] No raw tokens or secrets appear in any log line
-- [ ] `refresh_tokens` reuse detection confirmed via test
-- [ ] Rate limiting confirmed at exactly 5 req/min per IP
-- [ ] `forgot-password` returns 200 for non-existent email (email enumeration prevention)
-- [ ] Swagger UI renders all 8 auth routes with correct schemas
-- [ ] Staging URL responds to `GET /health` with 200
+> Audit completed: 2026-05-14. Full report: [AUD-001-BE_Audit_SPR-001-BE.md](AUD-001-BE_Audit_SPR-001-BE.md)
+
+- [x] All responses match CON-001 §5 error envelope exactly
+- [x] `request_id` present in every response header and error body
+- [x] No raw tokens or secrets appear in any log line
+- [x] `refresh_tokens` reuse detection confirmed via test
+- [x] Rate limiting confirmed at exactly 5 req/min per IP
+- [x] `forgot-password` returns 200 for non-existent email (email enumeration prevention)
+- [x] Swagger UI renders all 8 auth routes with correct schemas
+- [ ] Staging URL responds to `GET /health` with 200 — **PENDING: Human must run `fly deploy` after merge**

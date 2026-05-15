@@ -16,12 +16,13 @@ import (
 
 // TaskHandler wires the TaskService to Gin route handlers.
 type TaskHandler struct {
-	tasks services.TaskService
+	tasks     services.TaskService
+	recurring services.RecurringService
 }
 
 // NewTaskHandler creates a new TaskHandler.
-func NewTaskHandler(tasks services.TaskService) *TaskHandler {
-	return &TaskHandler{tasks: tasks}
+func NewTaskHandler(tasks services.TaskService, recurring services.RecurringService) *TaskHandler {
+	return &TaskHandler{tasks: tasks, recurring: recurring}
 }
 
 // RegisterRoutes registers all task routes on the given router group.
@@ -29,6 +30,7 @@ func NewTaskHandler(tasks services.TaskService) *TaskHandler {
 func (h *TaskHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.GET("", h.List)
 	r.POST("", h.Create)
+	r.POST("/recurring", h.CreateRecurring)
 	r.GET("/:id", h.Get)
 	r.PATCH("/:id", h.Update)
 	r.DELETE("/:id", h.Delete)
@@ -140,7 +142,7 @@ type createTaskBody struct {
 }
 
 // Create godoc
-// @Summary      Create task
+// @Summary      Create task (one-time)
 // @Tags         tasks
 // @Accept       json
 // @Produce      json
@@ -167,6 +169,32 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		StartAt:     body.StartAt,
 		EndAt:       body.EndAt,
 	})
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusCreated, resp)
+}
+
+// CreateRecurring godoc
+// @Summary      Create a recurring task
+// @Tags         tasks
+// @Accept       json
+// @Produce      json
+// @Param        body  body      services.CreateRecurringRequest  true  "Recurring task payload with rrule"
+// @Success      201   {object}  services.TaskResponse
+// @Security     BearerAuth
+// @Router       /tasks/recurring [post]
+func (h *TaskHandler) CreateRecurring(c *gin.Context) {
+	userID := middleware.MustUserID(c)
+
+	var req services.CreateRecurringRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(apierr.New(422, "VALIDATION_ERROR", err.Error()))
+		return
+	}
+
+	resp, err := h.recurring.CreateRecurring(c.Request.Context(), userID, req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -221,9 +249,10 @@ type updateTaskBody struct {
 // @Tags         tasks
 // @Accept       json
 // @Produce      json
-// @Param        id    path      string          true  "Task UUID"
-// @Param        body  body      updateTaskBody  true  "Fields to update"
-// @Success      200   {object}  services.TaskResponse
+// @Param        id     path      string          true   "Task UUID"
+// @Param        scope  query     string          false  "Scope for recurring tasks: this_only|this_and_future"
+// @Param        body   body      updateTaskBody  true   "Fields to update"
+// @Success      200    {object}  services.TaskResponse
 // @Security     BearerAuth
 // @Router       /tasks/{id} [patch]
 func (h *TaskHandler) Update(c *gin.Context) {
@@ -239,6 +268,42 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		return
 	}
 
+	scope := c.Query("scope")
+
+	// Route to RecurringService when scope param is present
+	if scope != "" {
+		req := services.UpdateScopedRequest{
+			Scope: scope,
+		}
+		// Map body to embedded UpdateTaskRequest
+		req.Title = body.Title
+		req.Description = body.Description
+		req.Address = body.Address
+		req.SortOrder = body.SortOrder
+		req.StartAt = body.StartAt
+		req.EndAt = body.EndAt
+		if body.Priority != nil {
+			p := repositories.Priority(*body.Priority)
+			req.Priority = &p
+		}
+		if body.TaskType != nil {
+			t := repositories.TaskType(*body.TaskType)
+			req.TaskType = &t
+		}
+		if body.Status != nil {
+			s := repositories.TaskStatus(*body.Status)
+			req.Status = &s
+		}
+		resp, err := h.recurring.UpdateScoped(c.Request.Context(), id, userID, req)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+
+	// One-time task (no scope) — original path
 	req := services.UpdateTaskRequest{
 		Title:       body.Title,
 		Description: body.Description,
@@ -275,7 +340,8 @@ func (h *TaskHandler) Update(c *gin.Context) {
 // Delete godoc
 // @Summary      Delete task
 // @Tags         tasks
-// @Param        id  path  string  true  "Task UUID"
+// @Param        id     path  string  true   "Task UUID"
+// @Param        scope  query string  false  "Scope for recurring tasks: this_only|this_and_future"
 // @Success      204
 // @Security     BearerAuth
 // @Router       /tasks/{id} [delete]
@@ -285,6 +351,17 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 	if !ok {
 		return
 	}
+
+	scope := c.Query("scope")
+	if scope != "" {
+		if err := h.recurring.DeleteScoped(c.Request.Context(), id, userID, scope); err != nil {
+			c.Error(err)
+			return
+		}
+		c.Status(http.StatusNoContent)
+		return
+	}
+
 	if err := h.tasks.DeleteTask(c.Request.Context(), id, userID); err != nil {
 		c.Error(err)
 		return

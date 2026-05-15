@@ -188,6 +188,10 @@ func (m *mockRecurringTaskRepo) DeleteFuturePending(_ context.Context, ruleID uu
 	return nil
 }
 
+func (m *mockRecurringTaskRepo) CountOverdueForUser(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Tests — RecurringService
 // ────────────────────────────────────────────────────────────────────────────

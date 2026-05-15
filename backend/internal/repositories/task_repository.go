@@ -143,6 +143,10 @@ type TaskRepository interface {
 	// DeleteFuturePending deletes all PENDING instances of a recurring rule
 	// with start_at >= fromDate. Used by scope=this_and_future flows (B-055, B-056).
 	DeleteFuturePending(ctx context.Context, ruleID uuid.UUID, fromDate time.Time) error
+
+	// CountOverdueForUser returns the number of PENDING tasks for a user whose
+	// end_at is in the past. Used by GamificationNightlyJob (B-063).
+	CountOverdueForUser(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -568,4 +572,21 @@ func (r *taskRepository) DeleteFuturePending(ctx context.Context, ruleID uuid.UU
 		ruleID, fromDate,
 	)
 	return err
+}
+
+// CountOverdueForUser returns the count of PENDING tasks for the given user
+// where end_at < NOW() (i.e., past their deadline — considered overdue).
+// Used by GamificationNightlyJob to determine the overdue penalty magnitude (B-063).
+func (r *taskRepository) CountOverdueForUser(ctx context.Context, userID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM tasks
+		WHERE user_id = $1
+		  AND status = 'PENDING'
+		  AND end_at IS NOT NULL
+		  AND end_at < NOW()`,
+		userID,
+	).Scan(&count)
+	return count, err
 }

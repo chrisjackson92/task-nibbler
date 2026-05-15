@@ -137,6 +137,10 @@ func (m *mockTaskRepo) DeleteFuturePending(_ context.Context, _ uuid.UUID, _ tim
 	return nil
 }
 
+func (m *mockTaskRepo) CountOverdueForUser(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Mock GamificationService
 // ────────────────────────────────────────────────────────────────────────────

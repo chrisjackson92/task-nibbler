@@ -191,6 +191,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("FATAL: cannot register recurring expansion job: %v", err)
 	}
+	// 00:30 UTC — gamification nightly decay + overdue penalties (B-063)
+	gamNightlyJob := jobs.NewGamificationNightlyJob(gamifSvc, userRepo, taskRepo)
+	_, err = s.NewJob(
+		gocron.CronJob("30 0 * * *", false),
+		gocron.NewTask(func() {
+			slog.Info("nightly cron: gamification decay + overdue penalty tick")
+			gamNightlyJob.Run()
+		}),
+	)
+	if err != nil {
+		log.Fatalf("FATAL: cannot register gamification nightly job: %v", err)
+	}
 	s.Start()
 	defer s.Shutdown()
 

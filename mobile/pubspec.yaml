@@ -37,6 +37,12 @@ dependencies:
   google_fonts: ^6.2.1
   intl: ^0.19.0
 
+  # Media — SPR-003-MB attachments
+  image_picker: ^1.1.2
+  video_player: ^2.8.7
+  permission_handler: ^11.3.1
+  cached_network_image: ^3.3.1
+
   # Deep linking
   # uni_links removed (AUD-005-MB MB-002) — go_router handles tasknibbles:// natively
 

@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/api_client.dart';
 import '../auth/token_storage.dart';
 import '../cache/task_cache.dart';
+import '../../features/attachments/data/attachment_repository.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/gamification/bloc/gamification_cubit.dart';
@@ -26,6 +27,7 @@ class Injection {
   late final TaskCache taskCache;
   late final AuthRepository authRepository;
   late final TaskRepository taskRepository;
+  late final AttachmentRepository attachmentRepository;
   late final AuthBloc authBloc;
   late final TaskListBloc taskListBloc;
   late final GamificationCubit gamificationCubit;
@@ -64,6 +66,7 @@ class Injection {
       taskCache: inj.taskCache,
       tokenStorage: inj.tokenStorage,
     );
+    inj.attachmentRepository = AttachmentRepository(apiDio: dio);
 
     // BLoCs / Cubits
     inj.authBloc = AuthBloc(

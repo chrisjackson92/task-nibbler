@@ -25,7 +25,7 @@ primary_region = "iad"
   timeout = "5s"
 
 [deploy]
-  release_command = "/api migrate"
+  release_command = "migrate"
 
 [[vm]]
   memory = "256mb"

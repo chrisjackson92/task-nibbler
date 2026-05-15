@@ -30,6 +30,8 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	migrations "github.com/chrisjackson92/task-nibbler/backend/db/migrations"
+
 	// Swagger UI
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -161,8 +163,9 @@ func setupDatabase(databaseURL string) *pgxpool.Pool {
 	return pool
 }
 
-// runMigrations applies all pending goose migrations from the db/migrations directory.
-// It resolves the path relative to the binary's working directory.
+// runMigrations applies all pending goose migrations using the embedded SQL files.
+// Migration files are compiled into the binary via db/migrations/migrations.go (embed.FS),
+// so the distroless runtime container does not need them on disk.
 func runMigrations(databaseURL string) error {
 	// Use stdlib adapter so goose can use the pgx driver
 	poolCfg, err := pgxpool.ParseConfig(databaseURL)
@@ -179,10 +182,13 @@ func runMigrations(databaseURL string) error {
 	db := stdlib.OpenDBFromPool(pool)
 	defer func(db *sql.DB) { _ = db.Close() }(db)
 
+	// Point goose at the embedded filesystem — no disk access needed
+	goose.SetBaseFS(migrations.FS)
+
 	if err := goose.SetDialect("postgres"); err != nil {
 		return err
 	}
 
-	// db/migrations path is relative to cwd at runtime (backend/ directory)
-	return goose.Up(db, "db/migrations")
+	// "." = root of the embedded FS, which IS the db/migrations directory
+	return goose.Up(db, ".")
 }

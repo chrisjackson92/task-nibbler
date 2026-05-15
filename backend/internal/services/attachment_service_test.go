@@ -202,32 +202,69 @@ func TestConfirm_SetsComplete(t *testing.T) {
 	repo := newMockAttachRepo()
 	svc := services.NewAttachmentService(repo, &mockS3Client{})
 
-	// Pre-register first to create a PENDING attachment
+	// Step 1 — pre-register
 	resp, err := svc.PreRegister(context.Background(), taskID, userID, services.PreRegisterRequest{
 		Filename: "doc.pdf", MimeType: "application/pdf", SizeBytes: 2048,
 	})
 	require.NoError(t, err)
 
+	// Step 2 — the response AttachmentID must be the DB-assigned ID (bug fix: was locally-generated uuid)
 	aid, err := uuid.Parse(resp.AttachmentID)
+	require.NoError(t, err, "AttachmentID in response must be a valid UUID")
+
+	// Step 3 — confirm directly using the ID from the response
+	err = svc.Confirm(context.Background(), aid, userID)
 	require.NoError(t, err)
 
-	// Manually add to repo by the ID returned (since PreRegister creates with a new random ID)
-	// Find the attachment in the repo by looking for the PENDING one
-	var attachmentID uuid.UUID
-	for id, a := range repo.attachments {
-		if a.Status == repositories.AttachmentStatusPending {
-			attachmentID = id
-			break
-		}
-	}
-	_ = aid // suppress unused warning — we use attachmentID from repo
-
-	err = svc.Confirm(context.Background(), attachmentID, userID)
-	require.NoError(t, err)
-
-	a, _ := repo.GetByID(context.Background(), attachmentID, userID)
+	a, getErr := repo.GetByID(context.Background(), aid, userID)
+	require.NoError(t, getErr, "GetByID with response AttachmentID must succeed")
 	assert.Equal(t, repositories.AttachmentStatusComplete, a.Status)
 	assert.NotNil(t, a.ConfirmedAt)
+}
+
+// TestPreRegister_Confirm_RoundTrip is the explicit architect-requested round-trip test.
+// It verifies that the AttachmentID returned by PreRegister is the DB row's actual ID,
+// so that the client can immediately use it to call Confirm.
+func TestPreRegister_Confirm_RoundTrip(t *testing.T) {
+	taskID := uuid.New()
+	userID := uuid.New()
+	repo := newMockAttachRepo()
+	svc := services.NewAttachmentService(repo, &mockS3Client{})
+
+	// 1. Pre-register — get back an attachment_id
+	preResp, err := svc.PreRegister(context.Background(), taskID, userID, services.PreRegisterRequest{
+		Filename:  "receipt.jpg",
+		MimeType:  "image/jpeg",
+		SizeBytes: 512,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, preResp.AttachmentID)
+
+	// 2. Parse the returned ID — must be a valid UUID
+	aid, err := uuid.Parse(preResp.AttachmentID)
+	require.NoError(t, err, "PreRegister must return a valid UUID attachment_id")
+
+	// 3. Verify the ID maps to a real PENDING row in the repo
+	a, err := repo.GetByID(context.Background(), aid, userID)
+	require.NoError(t, err, "PreRegister response attachment_id must be the DB-assigned row ID")
+	assert.Equal(t, repositories.AttachmentStatusPending, a.Status)
+
+	// 4. Confirm using the exact ID returned by PreRegister — must succeed
+	err = svc.Confirm(context.Background(), aid, userID)
+	require.NoError(t, err, "Confirm must succeed using the ID returned by PreRegister")
+
+	// 5. Verify row is now COMPLETE
+	a, err = repo.GetByID(context.Background(), aid, userID)
+	require.NoError(t, err)
+	assert.Equal(t, repositories.AttachmentStatusComplete, a.Status, "attachment must be COMPLETE after Confirm")
+	assert.NotNil(t, a.ConfirmedAt, "confirmed_at must be set")
+
+	// 6. Double-confirm must return 422 ATTACHMENT_NOT_PENDING (status guard in MarkComplete)
+	err = svc.Confirm(context.Background(), aid, userID)
+	require.Error(t, err, "second Confirm must fail")
+	var apiErr *apierr.APIError
+	require.True(t, errors.As(err, &apiErr))
+	assert.Equal(t, "ATTACHMENT_NOT_PENDING", apiErr.Code, "second Confirm must return 422 ATTACHMENT_NOT_PENDING")
 }
 
 func TestConfirm_AlreadyComplete_Returns422(t *testing.T) {

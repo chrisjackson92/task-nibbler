@@ -143,15 +143,16 @@ func (s *attachmentService) PreRegister(ctx context.Context, taskID, userID uuid
 		return nil, fmt.Errorf("attachment_service.PreRegister presign: %w", err)
 	}
 
-	// Create PENDING row in DB
+	// Create PENDING row in DB — use the DB-assigned ID in the response, not the
+	// locally-generated one (which was only used to build the deterministic S3 key).
 	sz := req.SizeBytes
-	_, err = s.repo.Create(ctx, taskID, userID, s3Key, req.MimeType, req.Filename, &sz)
+	attachment, err := s.repo.Create(ctx, taskID, userID, s3Key, req.MimeType, req.Filename, &sz)
 	if err != nil {
 		return nil, fmt.Errorf("attachment_service.PreRegister create: %w", err)
 	}
 
 	return &PreRegisterResponse{
-		AttachmentID: attachmentID.String(),
+		AttachmentID: attachment.ID.String(),
 		UploadURL:    uploadURL,
 		ExpiresAt:    expiresAt,
 	}, nil

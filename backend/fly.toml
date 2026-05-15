@@ -22,7 +22,10 @@ kill_timeout = "5s"           # Allow in-flight requests to complete
 # If migration fails, deploy aborts and old version keeps serving traffic.
 # See RUN-002 §4 for the Safe Migration Pattern.
 [deploy]
-  release_command = "/api migrate"
+  # NOTE: Fly prepends ENTRYPOINT [/api] to this value.
+  # 'migrate' alone → '/api migrate' → os.Args[1] == 'migrate' ✓
+  # '/api migrate' would produce '/api /api migrate' → wrong args → API server starts instead of migrating.
+  release_command = "migrate"
 
 # ── Non-secret environment variables ──────────────────────────────────────────
 # Secrets (DATABASE_URL, JWT_SECRET, etc.) are set via: fly secrets set

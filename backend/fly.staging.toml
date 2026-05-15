@@ -19,7 +19,8 @@ kill_timeout = "5s"
 
 # Run DB migrations BEFORE new machines receive traffic.
 [deploy]
-  release_command = "/api migrate"
+  # NOTE: Fly prepends ENTRYPOINT [/api] to this value — use 'migrate' alone (not '/api migrate').
+  release_command = "migrate"
 
 [env]
   PORT      = "8080"

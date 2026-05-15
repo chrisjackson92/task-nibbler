@@ -2,16 +2,16 @@
 id: AUD-006-BE
 title: "Architect Audit — SPR-005-BE Recurring Tasks Backend"
 type: audit
-status: BLOCKED
+status: APPROVED
 sprint: SPR-005-BE
 pr_branch: feature/B-026-B-056-recurring-tasks
-commit: f8c074c
+commit: cffdbbe (fix commit on top of f8c074c)
 auditor: architect
 created: 2026-05-15
 updated: 2026-05-15
 ---
 
-> **BLUF:** SPR-005-BE **BLOCKED**. One critical bug — the nightly expansion cron creates task instances with empty titles because `recurring_rules` has no `title` column and the job hard-codes `Title: ""`. The developer acknowledged this with a code comment but provided no fix. All other work (RRULE parsing, scope PATCH/DELETE, idempotency index, cron registration, tests) is correct and well-structured. **One-migration fix required; re-submit.**
+> **BLUF:** SPR-005-BE **APPROVED**. Initial submission was BLOCKED on a critical empty-title bug. Re-submit commit `cffdbbe` correctly resolves all three AUD-006-BE findings: migration 0014 adds `recurring_rules.title`, the expansion job uses `rule.Title`, `userRepo` is now injected via a `userTzReader` interface, and `DELETE this_and_future` now deletes the anchor task. **Merged to `develop`.**
 
 # Architect Audit — SPR-005-BE
 

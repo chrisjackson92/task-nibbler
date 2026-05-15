@@ -280,9 +280,15 @@ git commit -m "feat(auth): implement register and login endpoints [B-004]"
 git commit -m "test(auth): add unit tests for auth service [B-004]"
 git commit -m "fix(auth): correct bcrypt cost factor [B-004]"
 
-# Open PR to develop
-# Architect reviews before merge
+# Open PR to develop — push your branch, create a PR, wait for Architect review
+git push origin feature/B-004-auth-endpoints
+# Then open PR on GitHub → Architect reviews → merge
 ```
+
+> [!CAUTION]
+> **`develop` and `main` are protected branches. You MUST NEVER commit or push directly to them.**
+> All work — including audit remediations, hotfixes, and chores — must go through a `feature/B-NNN` branch and a PR.
+> Direct commits to `develop` bypass the Architect review gate and are a governance violation (GOV-004).
 
 **Commit message prefixes:** `feat:`, `fix:`, `test:`, `refactor:`, `docs:`, `chore:`
 
@@ -296,6 +302,8 @@ git commit -m "fix(auth): correct bcrypt cost factor [B-004]"
 - ❌ Hardcode secrets — all secrets via env vars only
 - ❌ Deploy to production directly — production deploys require Human approval
 - ❌ Skip migrations — schema changes must always have a goose migration file
+- ❌ **Commit or push directly to `develop` or `main`** — always use `feature/B-NNN` → PR → Architect merge
+- ❌ **Push without confirming tests pass** — `go test ./...` must be green before pushing
 
 ---
 

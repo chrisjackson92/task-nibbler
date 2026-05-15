@@ -68,6 +68,7 @@ type TaskResponse struct {
 	IsOverdue       bool       `json:"is_overdue"`
 	SortOrder       int        `json:"sort_order"`
 	IsDetached      bool       `json:"is_detached"`
+	AttachmentCount int        `json:"attachment_count"`
 	StartAt         *time.Time `json:"start_at"`
 	EndAt           *time.Time `json:"end_at"`
 	CompletedAt     *time.Time `json:"completed_at"`
@@ -295,6 +296,7 @@ func toTaskResponse(t *repositories.Task) TaskResponse {
 		IsOverdue:       t.IsOverdue,
 		SortOrder:       t.SortOrder,
 		IsDetached:      t.IsDetached,
+		AttachmentCount: t.AttachmentCount,
 		StartAt:         t.StartAt,
 		EndAt:           t.EndAt,
 		CompletedAt:     t.CompletedAt,

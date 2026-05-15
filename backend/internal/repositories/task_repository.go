@@ -58,6 +58,7 @@ type Task struct {
 	IsOverdue       bool // computed; not a DB column
 	SortOrder       int
 	IsDetached      bool
+	AttachmentCount int  // computed from task_attachments (B-059, AUD-003-BE Finding #2)
 	StartAt         *time.Time
 	EndAt           *time.Time
 	CompletedAt     *time.Time
@@ -165,6 +166,7 @@ func (r *taskRepository) Create(ctx context.Context, p CreateTaskParams) (*Task,
 		RETURNING
 			id, user_id, recurring_rule_id, title, description, address,
 			priority, task_type, status, sort_order, is_detached,
+			0 AS attachment_count,
 			start_at, end_at, completed_at, cancelled_at, created_at, updated_at`,
 		p.UserID, p.RecurringRuleID, p.Title, p.Description, p.Address,
 		string(p.Priority), string(p.TaskType), p.SortOrder, p.StartAt, p.EndAt,
@@ -176,8 +178,10 @@ func (r *taskRepository) GetByID(ctx context.Context, id, userID uuid.UUID) (*Ta
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, user_id, recurring_rule_id, title, description, address,
 		       priority, task_type, status, sort_order, is_detached,
+		       (SELECT COUNT(*) FROM task_attachments
+		        WHERE task_id = t.id AND status = 'COMPLETE') AS attachment_count,
 		       start_at, end_at, completed_at, cancelled_at, created_at, updated_at
-		FROM tasks WHERE id = $1 AND user_id = $2`, id, userID)
+		FROM tasks t WHERE id = $1 AND user_id = $2`, id, userID)
 	t, err := scanTask(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -264,8 +268,10 @@ func (r *taskRepository) List(ctx context.Context, userID uuid.UUID, f ListTasks
 	query := fmt.Sprintf(`
 		SELECT id, user_id, recurring_rule_id, title, description, address,
 		       priority, task_type, status, sort_order, is_detached,
+		       (SELECT COUNT(*) FROM task_attachments
+		        WHERE task_id = t.id AND status = 'COMPLETE') AS attachment_count,
 		       start_at, end_at, completed_at, cancelled_at, created_at, updated_at
-		FROM tasks
+		FROM tasks t
 		WHERE user_id = $1
 		  AND ($2::task_status IS NULL OR status = $2)
 		  AND ($3::task_priority IS NULL OR priority = $3)
@@ -363,6 +369,8 @@ func (r *taskRepository) Update(ctx context.Context, id, userID uuid.UUID, p Upd
 		RETURNING
 		  id, user_id, recurring_rule_id, title, description, address,
 		  priority, task_type, status, sort_order, is_detached,
+		  (SELECT COUNT(*) FROM task_attachments
+		   WHERE task_id = tasks.id AND status = 'COMPLETE') AS attachment_count,
 		  start_at, end_at, completed_at, cancelled_at, created_at, updated_at`,
 		id, userID,
 		p.Title, p.Description, p.Address,
@@ -398,6 +406,8 @@ func (r *taskRepository) Complete(ctx context.Context, id, userID uuid.UUID) (*T
 		RETURNING
 		  id, user_id, recurring_rule_id, title, description, address,
 		  priority, task_type, status, sort_order, is_detached,
+		  (SELECT COUNT(*) FROM task_attachments
+		   WHERE task_id = tasks.id AND status = 'COMPLETE') AS attachment_count,
 		  start_at, end_at, completed_at, cancelled_at, created_at, updated_at`,
 		id, userID)
 	t, err := scanTask(row)
@@ -436,7 +446,7 @@ func scanTask(s scanner) (*Task, error) {
 		&t.ID, &t.UserID, &recurringRuleID,
 		&t.Title, &t.Description, &t.Address,
 		&priority, &taskType, &status,
-		&t.SortOrder, &t.IsDetached,
+		&t.SortOrder, &t.IsDetached, &t.AttachmentCount,
 		&t.StartAt, &t.EndAt, &t.CompletedAt, &t.CancelledAt,
 		&t.CreatedAt, &t.UpdatedAt,
 	)
@@ -461,7 +471,7 @@ func scanTaskFromRows(rows pgx.Rows) (*Task, error) {
 		&t.ID, &t.UserID, &recurringRuleID,
 		&t.Title, &t.Description, &t.Address,
 		&priority, &taskType, &status,
-		&t.SortOrder, &t.IsDetached,
+		&t.SortOrder, &t.IsDetached, &t.AttachmentCount,
 		&t.StartAt, &t.EndAt, &t.CompletedAt, &t.CancelledAt,
 		&t.CreatedAt, &t.UpdatedAt,
 	)

@@ -2,14 +2,14 @@
 id: SPR-002-BE
 title: "Sprint 2 — Task CRUD Backend"
 type: sprint
-status: READY
+status: AUDITED_WITH_NOTES
 assignee: coder
 agent_boot: AGT-002-BE_Backend_Developer_Agent.md
 sprint_number: 2
 track: backend
 estimated_days: 4
-blocked_by: "None — SPR-001-BE audit PASSED (AUD-001-BE). Human must merge branch to develop first."
-related: [BLU-002, BLU-003, CON-002]
+blocked_by: "None"
+related: [BLU-002, BLU-003, CON-002, AUD-002-BE]
 created: 2026-05-14
 updated: 2026-05-15
 ---

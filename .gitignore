@@ -3,6 +3,8 @@
 .env.*
 *.env
 !*.env.example
+Credentials.txt
+credentials.txt
 
 # ─── Go (backend/) ────────────────────────────────────────────────────────────
 backend/bin/
@@ -48,3 +50,6 @@ Thumbs.db
 # ─── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 logs/
+
+# ─── Local Go toolchain (installed locally for development) ───────────────────
+go-dist/

@@ -1,0 +1,5 @@
+*.env.local
+.env
+coverage.out
+coverage.html
+/api

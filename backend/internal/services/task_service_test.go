@@ -128,6 +128,15 @@ func (m *mockTaskRepo) GetMaxSortOrder(_ context.Context, _ uuid.UUID) (int, err
 	return m.maxSort, nil
 }
 
+// Stubs for recurring task methods — not exercised by TaskService tests.
+func (m *mockTaskRepo) CreateIfNotExists(_ context.Context, p repositories.CreateTaskParams) (*repositories.Task, error) {
+	return m.Create(context.Background(), p)
+}
+
+func (m *mockTaskRepo) DeleteFuturePending(_ context.Context, _ uuid.UUID, _ time.Time) error {
+	return nil
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Mock GamificationService
 // ────────────────────────────────────────────────────────────────────────────

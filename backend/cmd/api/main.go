@@ -83,6 +83,7 @@ func main() {
 	taskRepo := repositories.NewTaskRepository(pool)
 	attachmentRepo := repositories.NewAttachmentRepository(pool)
 	badgeRepo := repositories.NewBadgeRepository(pool)
+	ruleRepo := repositories.NewRecurringRuleRepository(pool)
 
 	// Wire S3 client (B-015)
 	s3, err := s3client.New(context.Background(), s3client.Config{
@@ -95,18 +96,18 @@ func main() {
 		log.Fatalf("FATAL: cannot create S3 client: %v", err)
 	}
 
-
 	// Wire services
 	emailSvc := services.NewEmailService(cfg.ResendAPIKey, cfg.ResendFromEmail, cfg.AppBaseURL)
 	authSvc := services.NewAuthService(userRepo, refreshRepo, passwordRepo, gamifRepo, emailSvc, cfg.JWTSecret, cfg.JWTRefreshSecret)
 	gamifSvc := services.NewGamificationService(gamifRepo, badgeRepo)
 	taskSvc := services.NewTaskService(taskRepo, gamifSvc)
 	attachmentSvc := services.NewAttachmentService(attachmentRepo, s3)
+	recurringSvc := services.NewRecurringService(taskRepo, ruleRepo)
 
 	// Wire handlers
 	authHandler := handlers.NewAuthHandler(authSvc)
 	healthHandler := handlers.NewHealthHandler(pool, version)
-	taskHandler := handlers.NewTaskHandler(taskSvc)
+	taskHandler := handlers.NewTaskHandler(taskSvc, recurringSvc)
 	attachmentHandler := handlers.NewAttachmentHandler(attachmentSvc)
 	gamificationHandler := handlers.NewGamificationHandler(gamifSvc)
 
@@ -161,21 +162,34 @@ func main() {
 
 	}
 
-	// Nightly cron scheduler (B-014, B-045)
+	// Nightly cron scheduler (B-014, B-045, B-026)
 	attachmentCleanup := jobs.NewAttachmentCleanupJob(attachmentRepo, s3)
+	recurringExpansion := jobs.NewRecurringExpansionJob(ruleRepo, taskRepo, userRepo)
 	s, err := gocron.NewScheduler()
 	if err != nil {
 		log.Fatalf("FATAL: cannot create scheduler: %v", err)
 	}
+	// 00:05 UTC — clean up PENDING attachment rows older than 1 hour
 	_, err = s.NewJob(
 		gocron.CronJob("5 0 * * *", false),
 		gocron.NewTask(func() {
-			slog.Info("nightly cron: tick")
+			slog.Info("nightly cron: attachment cleanup tick")
 			attachmentCleanup.Run(context.Background())
 		}),
 	)
 	if err != nil {
-		log.Fatalf("FATAL: cannot register nightly cron job: %v", err)
+		log.Fatalf("FATAL: cannot register attachment cleanup job: %v", err)
+	}
+	// 00:15 UTC — expand active recurring rules for next 30 days (idempotent)
+	_, err = s.NewJob(
+		gocron.CronJob("15 0 * * *", false),
+		gocron.NewTask(func() {
+			slog.Info("nightly cron: recurring expansion tick")
+			recurringExpansion.Run(context.Background())
+		}),
+	)
+	if err != nil {
+		log.Fatalf("FATAL: cannot register recurring expansion job: %v", err)
 	}
 	s.Start()
 	defer s.Shutdown()

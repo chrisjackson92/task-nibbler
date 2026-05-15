@@ -106,16 +106,17 @@ type CreateTaskParams struct {
 
 // UpdateTaskParams holds optional fields for a partial task update.
 type UpdateTaskParams struct {
-	Title       *string
-	Description *string
-	Address     *string
-	Priority    *Priority
-	TaskType    *TaskType
-	Status      *TaskStatus
-	SortOrder   *int
-	StartAt     *time.Time
-	EndAt       *time.Time
-	CancelledAt *time.Time
+	Title         *string
+	Description   *string
+	Address       *string
+	Priority      *Priority
+	TaskType      *TaskType
+	Status        *TaskStatus
+	SortOrder     *int
+	StartAt       *time.Time
+	EndAt         *time.Time
+	CancelledAt   *time.Time
+	SetIsDetached bool // if TRUE, sets is_detached=TRUE (scope=this_only detach)
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -133,6 +134,15 @@ type TaskRepository interface {
 	Complete(ctx context.Context, id, userID uuid.UUID) (*Task, error)
 	UpdateSortOrder(ctx context.Context, id, userID uuid.UUID, sortOrder int) error
 	GetMaxSortOrder(ctx context.Context, userID uuid.UUID) (int, error)
+
+	// CreateIfNotExists creates a recurring task instance, skipping on duplicate
+	// (uq_recurring_instance conflict). Returns nil, nil if the row already exists.
+	// Used by the nightly expansion cron (B-026, B-027).
+	CreateIfNotExists(ctx context.Context, params CreateTaskParams) (*Task, error)
+
+	// DeleteFuturePending deletes all PENDING instances of a recurring rule
+	// with start_at >= fromDate. Used by scope=this_and_future flows (B-055, B-056).
+	DeleteFuturePending(ctx context.Context, ruleID uuid.UUID, fromDate time.Time) error
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -364,6 +374,7 @@ func (r *taskRepository) Update(ctx context.Context, id, userID uuid.UUID, p Upd
 		  start_at     = COALESCE($10, start_at),
 		  end_at       = COALESCE($11, end_at),
 		  cancelled_at = COALESCE($12, cancelled_at),
+		  is_detached  = CASE WHEN $13 THEN TRUE ELSE is_detached END,
 		  updated_at   = NOW()
 		WHERE id = $1 AND user_id = $2
 		RETURNING
@@ -375,7 +386,7 @@ func (r *taskRepository) Update(ctx context.Context, id, userID uuid.UUID, p Upd
 		id, userID,
 		p.Title, p.Description, p.Address,
 		priorityArg(p.Priority), typeArg(p.TaskType), statusArg(p.Status),
-		p.SortOrder, p.StartAt, p.EndAt, p.CancelledAt,
+		p.SortOrder, p.StartAt, p.EndAt, p.CancelledAt, p.SetIsDetached,
 	)
 	t, err := scanTask(row)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -514,4 +525,47 @@ func typeArg(t *TaskType) *string {
 	}
 	v := string(*t)
 	return &v
+}
+
+// CreateIfNotExists inserts a recurring task instance using ON CONFLICT DO NOTHING.
+// The uq_recurring_instance index on (recurring_rule_id, DATE(start_at)) prevents duplicates.
+// Returns (nil, nil) when the row already exists — callers log this as a skip.
+func (r *taskRepository) CreateIfNotExists(ctx context.Context, p CreateTaskParams) (*Task, error) {
+	row := r.pool.QueryRow(ctx, `
+		INSERT INTO tasks (
+			user_id, recurring_rule_id, title, description, address,
+			priority, task_type, sort_order, start_at, end_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		ON CONFLICT (recurring_rule_id, DATE(COALESCE(start_at, created_at)))
+		WHERE recurring_rule_id IS NOT NULL AND is_detached = FALSE
+		DO NOTHING
+		RETURNING
+			id, user_id, recurring_rule_id, title, description, address,
+			priority, task_type, status, sort_order, is_detached,
+			0 AS attachment_count,
+			start_at, end_at, completed_at, cancelled_at, created_at, updated_at`,
+		p.UserID, p.RecurringRuleID, p.Title, p.Description, p.Address,
+		string(p.Priority), string(p.TaskType), p.SortOrder, p.StartAt, p.EndAt,
+	)
+	t, err := scanTask(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// ON CONFLICT DO NOTHING — row already existed; idempotent
+		return nil, nil
+	}
+	return t, err
+}
+
+// DeleteFuturePending deletes all PENDING instances of a recurring rule
+// with start_at > fromDate (strictly after — does NOT delete the current/anchor instance).
+// Called by scope=this_and_future logic.
+func (r *taskRepository) DeleteFuturePending(ctx context.Context, ruleID uuid.UUID, fromDate time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		DELETE FROM tasks
+		WHERE recurring_rule_id = $1
+		  AND status = 'PENDING'
+		  AND is_detached = FALSE
+		  AND start_at > $2`,
+		ruleID, fromDate,
+	)
+	return err
 }

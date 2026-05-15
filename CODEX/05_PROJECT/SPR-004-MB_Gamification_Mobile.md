@@ -8,13 +8,10 @@ agent_boot: AGT-002-MB_Mobile_Developer_Agent.md
 sprint_number: 4
 track: mobile
 estimated_days: 5
-blocked_by:
-  - SPR-004-BE (gamification endpoints live on staging)
-  - SPR-003-MB (must pass audit)
-  - Rive .riv files must exist in assets/animations/ (PRJ-001 §9 Open Decision #2)
+blocked_by: none — SPR-003-MB MERGED ✅, SPR-004-BE MERGED ✅, Rive stub policy covers missing .riv files
 related: [BLU-004, CON-002, PRJ-001]
 created: 2026-05-14
-updated: 2026-05-14
+updated: 2026-05-15
 ---
 
 > **BLUF:** Replace all gamification placeholders with live data and Rive animations. Implement the full gamification detail screen, badge shelf, badge award celebration overlay, and wire the home screen hero to real API data.
@@ -28,12 +25,12 @@ updated: 2026-05-14
 
 ## Pre-Conditions
 
-- [ ] `SPR-003-MB` Architect audit PASSED
-- [ ] `SPR-004-BE` complete — `/gamification/state` and `/gamification/badges` live on staging
+- [x] `SPR-003-MB` Architect audit PASSED — merged `develop` @ `b5688c2`
+- [x] `SPR-004-BE` complete — `/gamification/state` and `/gamification/badges` live on staging
 - [ ] Read `PRJ-001` §5.5 (full gamification spec including hero section) in full
 - [ ] Read `BLU-004_Frontend_Architecture.md` §§7–8 (Rive specs + home screen layout) in full
 - [ ] Read `BLU-002-SD_Seed_Data_Reference.md` §3 (badge award trigger reference) in full
-- [ ] Rive files present in `assets/animations/` OR placeholder widgets ready as fallback
+- [ ] **Rive files:** If `assets/animations/sprite.riv` and `tree.riv` are NOT present, proceed with animated colour-block placeholder. Do NOT block sprint on asset creation.
 
 ---
 

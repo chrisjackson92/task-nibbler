@@ -106,13 +106,33 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-// UpdatePassword sets a new bcrypt password hash for the given user.
 func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, newHash string) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1`,
 		id, newHash,
 	)
 	return err
+}
+
+// ListAllUserIDs returns every user ID in the users table.
+// Used by GamificationNightlyJob to fan-out decay/penalty over all users.
+// Full-table scan is acceptable at MVP scale; add pagination if user count exceeds 10k.
+func (r *UserRepository) ListAllUserIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id FROM users ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func scanUser(row pgx.Row) (*User, error) {

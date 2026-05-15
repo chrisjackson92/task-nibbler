@@ -2,6 +2,13 @@ package apierr
 
 import "net/http"
 
+// New creates an ad-hoc APIError with the given HTTP status, machine-readable code, and message.
+// Use pre-defined sentinel errors where possible; use New for dynamic messages (e.g. validation details).
+func New(status int, code, message string) *APIError {
+	return &APIError{Status: status, Code: code, Message: message}
+}
+
+
 // APIError represents a typed application error with an HTTP status code and machine-readable code.
 // Satisfies the error interface so handlers can use c.Error(apierr.ErrTaskNotFound).
 type APIError struct {

@@ -295,6 +295,55 @@ func (r *GamificationRepository) Create(ctx context.Context, userID uuid.UUID) (
 	return scanGamificationState(row)
 }
 
+// GetByUserID retrieves the gamification state for the given user.
+func (r *GamificationRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*GamificationState, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, user_id, streak_count, last_active_date, grace_used_at,
+		        has_completed_first_task, tree_health_score, created_at, updated_at
+		 FROM gamification_state WHERE user_id = $1 LIMIT 1`,
+		userID,
+	)
+	gs, err := scanGamificationState(row)
+	if err != nil {
+		return nil, err
+	}
+	if gs == nil {
+		return nil, ErrNotFound
+	}
+	return gs, nil
+}
+
+// UpdateOnComplete atomically updates gamification state after a task is completed.
+// newStreakCount and lastActiveDate are computed by the service layer.
+// tree_health_score is incremented by 5 in the DB (capped at 100 via LEAST).
+func (r *GamificationRepository) UpdateOnComplete(
+	ctx context.Context,
+	userID uuid.UUID,
+	newStreakCount int,
+	lastActiveDate time.Time,
+) (*GamificationState, error) {
+	row := r.pool.QueryRow(ctx,
+		`UPDATE gamification_state SET
+		   streak_count             = $1,
+		   last_active_date         = $2,
+		   has_completed_first_task = TRUE,
+		   tree_health_score        = LEAST(tree_health_score + 5, 100),
+		   updated_at               = NOW()
+		 WHERE user_id = $3
+		 RETURNING id, user_id, streak_count, last_active_date, grace_used_at,
+		           has_completed_first_task, tree_health_score, created_at, updated_at`,
+		newStreakCount, lastActiveDate, userID,
+	)
+	gs, err := scanGamificationState(row)
+	if err != nil {
+		return nil, err
+	}
+	if gs == nil {
+		return nil, ErrNotFound
+	}
+	return gs, nil
+}
+
 func scanGamificationState(row pgx.Row) (*GamificationState, error) {
 	gs := &GamificationState{}
 	err := row.Scan(

@@ -13,6 +13,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// MustUserID extracts the authenticated user's UUID from the Gin context.
+// Panics if the auth middleware was not applied — this is intentional; it is
+// a programming error, not a runtime error.
+func MustUserID(c *gin.Context) uuid.UUID {
+	return c.MustGet("user_id").(uuid.UUID)
+}
+
+
+
 // Auth validates the JWT access token and injects user_id into the Gin context.
 // Protected routes must use this middleware. Handlers extract the user ID with:
 //

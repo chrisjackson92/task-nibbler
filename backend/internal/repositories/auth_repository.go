@@ -273,6 +273,15 @@ func scanPasswordResetToken(row pgx.Row) (*PasswordResetToken, error) {
 	return prt, nil
 }
 
+// GamificationStateReader is the minimal interface required by GamificationService.
+// The concrete *GamificationRepository satisfies it automatically.
+// Declared here (in the producer package) rather than in services/ to avoid
+// import cycles — services imports repositories, not vice versa.
+type GamificationStateReader interface {
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*GamificationState, error)
+	UpdateOnComplete(ctx context.Context, userID uuid.UUID, newStreakCount int, lastActiveDate time.Time) (*GamificationState, error)
+}
+
 // GamificationRepository handles data access for the gamification_state table.
 type GamificationRepository struct {
 	pool *pgxpool.Pool

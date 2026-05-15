@@ -524,6 +524,33 @@ class CreateTaskRequest {
       };
 }
 
+// ──────────────────────────────────────────────
+// Recurring edit scope (CON-002 §3 PATCH/DELETE)
+// ──────────────────────────────────────────────
+
+/// Scope for editing or deleting an instance of a recurring task.
+/// Sent as the `?scope=` query parameter on PATCH/DELETE.
+enum RecurringEditScope {
+  thisOnly,
+  thisAndFuture;
+
+  String toApiParam() => switch (this) {
+        RecurringEditScope.thisOnly => 'this_only',
+        RecurringEditScope.thisAndFuture => 'this_and_future',
+      };
+
+  String get label => switch (this) {
+        RecurringEditScope.thisOnly => 'This task only',
+        RecurringEditScope.thisAndFuture => 'This and all future tasks',
+      };
+
+  String get subtitle => switch (this) {
+        RecurringEditScope.thisOnly => 'Edit just this occurrence',
+        RecurringEditScope.thisAndFuture =>
+          'Edit this occurrence and all that follow',
+      };
+}
+
 class UpdateTaskRequest {
   const UpdateTaskRequest({
     this.title,

@@ -113,14 +113,31 @@ GoRouter createRouter({
       GoRoute(
         path: AppRoutes.taskEdit,
         builder: (context, state) {
-          final task = state.extra as Task?;
+          // Support both bare Task (from old push) and _TaskEditExtra (from scope dialog)
+          final extra = state.extra;
+          final Task? task;
+          RecurringEditScope? scope;
+
+          if (extra is Task) {
+            task = extra;
+          } else if (extra is TaskEditExtra) {
+            task = extra.task;
+            scope = extra.scope;
+          } else {
+            task = null;
+          }
+
           if (task == null) return const TaskListScreen();
           return MultiBlocProvider(
             providers: [
               BlocProvider<TaskFormCubit>(
-                create: (_) => TaskFormCubit(
-                  taskRepository: Injection.instance.taskRepository,
-                ),
+                create: (_) {
+                  final cubit = TaskFormCubit(
+                    taskRepository: Injection.instance.taskRepository,
+                  );
+                  if (scope != null) cubit.setScope(scope);
+                  return cubit;
+                },
               ),
               BlocProvider.value(value: Injection.instance.taskListBloc),
             ],

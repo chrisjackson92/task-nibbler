@@ -1,17 +1,9 @@
-import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 
 import 'package:task_nibbles/core/api/models/gamification_models.dart';
-import 'package:task_nibbles/features/gamification/bloc/gamification_cubit.dart';
 import 'package:task_nibbles/features/gamification/ui/widgets/badge_shelf_widget.dart';
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
-
-class MockGamificationCubit extends MockCubit<GamificationState>
-    implements GamificationCubit {}
 
 // ── Test data ─────────────────────────────────────────────────────────────────
 

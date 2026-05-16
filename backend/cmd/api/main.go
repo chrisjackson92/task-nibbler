@@ -1,3 +1,4 @@
+// Task Nibbles API — v1.0.0 production release
 // Package main is the entry point for the Task Nibbles API server.
 // It wires dependencies, starts the Gin HTTP server, and runs database migrations
 // when invoked with the "migrate" subcommand.

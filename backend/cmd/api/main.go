@@ -276,3 +276,4 @@ func runMigrations(databaseURL string) error {
 	// "." = root of the embedded FS, which IS the db/migrations directory
 	return goose.Up(db, ".")
 }
+// Production bootstrap: database_url sslmode=disable fix [TRB-008]

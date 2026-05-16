@@ -131,6 +131,18 @@ func main() {
 	// Health check (no auth, no rate limit)
 	r.GET("/health", healthHandler.Health)
 
+	// Connectivity ping — no auth, no DB. Used by mobile debug builds to
+	// verify the app can reach the API independently of DNS/proxy issues.
+	r.GET("/api/v1/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"ok":         true,
+			"server":     "task-nibbles-api",
+			"env":        "production",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.Request.UserAgent(),
+		})
+	})
+
 	// Public auth routes (rate limited)
 	auth := r.Group("/api/v1/auth")
 	auth.Use(middleware.RateLimit(5, time.Minute))

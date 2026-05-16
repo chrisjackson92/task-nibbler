@@ -6,9 +6,10 @@ import 'interceptors/auth_interceptor.dart';
 import 'interceptors/logging_interceptor.dart';
 
 /// Base URL injected at build time via --dart-define (AGT-002-MB §5.2).
+/// Falls back to production URL if not overridden (sideload builds).
 const _kApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://localhost:8080',
+  defaultValue: 'https://task-nibbles-api.fly.dev',
 );
 
 /// Creates and configures the shared [Dio] instance.

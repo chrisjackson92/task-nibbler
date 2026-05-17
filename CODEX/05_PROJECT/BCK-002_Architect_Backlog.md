@@ -91,16 +91,23 @@ version: 1.1.0
 | ID | Task | Category | Dependencies | Deliverable | Status |
 |:---|:-----|:---------|:-------------|:------------|:-------|
 | A-026 | SPR-001-BE Architect Audit | ARCH-AUDIT | SPR-001-BE complete | Audit report + pass/fail | ✅ Done — AUD-001-BE (APPROVED_WITH_NOTES) |
-| A-027 | SPR-001-MB Architect Audit | ARCH-AUDIT | SPR-001-MB complete | Audit report + pass/fail | [ ] Open |
-| A-028 | SPR-002-BE Architect Audit | ARCH-AUDIT | SPR-002-BE complete | Audit report + pass/fail | [ ] Open |
-| A-029 | SPR-002-MB Architect Audit | ARCH-AUDIT | SPR-002-MB complete | Audit report + pass/fail | [ ] Open |
-| A-030 | SPR-003-BE Architect Audit | ARCH-AUDIT | SPR-003-BE complete | Audit report + pass/fail | [ ] Open |
-| A-031 | SPR-003-MB Architect Audit | ARCH-AUDIT | SPR-003-MB complete | Audit report + pass/fail | [ ] Open |
-| A-032 | SPR-004-BE Architect Audit | ARCH-AUDIT | SPR-004-BE complete | Audit report + pass/fail | [ ] Open |
-| A-033 | SPR-004-MB Architect Audit | ARCH-AUDIT | SPR-004-MB complete | Audit report + pass/fail | [ ] Open |
-| A-034 | SPR-005-BE Architect Audit | ARCH-AUDIT | SPR-005-BE complete | Audit report + pass/fail | [ ] Open |
-| A-035 | SPR-005-MB Architect Audit | ARCH-AUDIT | SPR-005-MB complete | Audit report + pass/fail | [ ] Open |
-| A-036 | SPR-006-OPS Architect Audit | ARCH-AUDIT | SPR-006-OPS complete | Audit report + pass/fail | [ ] Open |
+| A-027 | SPR-001-MB Architect Audit | ARCH-AUDIT | SPR-001-MB complete | Audit report + pass/fail | ✅ Done — AUD-005-MB |
+| A-028 | SPR-002-BE Architect Audit | ARCH-AUDIT | SPR-002-BE complete | Audit report + pass/fail | ✅ Done — AUD-002-BE |
+| A-029 | SPR-002-MB Architect Audit | ARCH-AUDIT | SPR-002-MB complete | Audit report + pass/fail | ✅ Done — AUD-007-MB |
+| A-030 | SPR-003-BE Architect Audit | ARCH-AUDIT | SPR-003-BE complete | Audit report + pass/fail | ✅ Done — AUD-003-BE |
+| A-031 | SPR-003-MB Architect Audit | ARCH-AUDIT | SPR-003-MB complete | Audit report + pass/fail | ✅ Done — AUD-009-MB |
+| A-032 | SPR-004-BE Architect Audit | ARCH-AUDIT | SPR-004-BE complete | Audit report + pass/fail | ✅ Done — AUD-004-BE |
+| A-033 | SPR-004-MB Architect Audit | ARCH-AUDIT | SPR-004-MB complete | Audit report + pass/fail | ✅ Done — AUD-010-MB |
+| A-034 | SPR-005-BE Architect Audit | ARCH-AUDIT | SPR-005-BE complete | Audit report + pass/fail | ✅ Done — AUD-006-BE |
+| A-035 | SPR-005-MB Architect Audit | ARCH-AUDIT | SPR-005-MB complete | Audit report + pass/fail | ✅ Done — AUD-012-MB |
+| A-036 | SPR-006-OPS Architect Audit | ARCH-AUDIT | SPR-006-OPS complete | Audit report + pass/fail | ✅ Done — AUD-008-OPS |
+| A-046 | SPR-007-BE Architect Audit | ARCH-AUDIT | SPR-007-BE complete | Audit report + pass/fail | ✅ Done — AUD-011-BE |
+| A-047 | SPR-008-MB sprint doc creation | ARCH-CODEX | SPR-008-MB complete | SPR-008-MB.md | ✅ Done |
+| A-048 | SPR-008-MB Architect Audit | ARCH-AUDIT | SPR-008-MB complete | AUD-013-MB | ✅ Done |
+| A-049 | SPR-009-MB sprint doc creation | ARCH-CODEX | SPR-009-MB complete | SPR-009-MB.md | ✅ Done |
+| A-050 | SPR-009-MB Architect Audit | ARCH-AUDIT | SPR-009-MB complete | AUD-014-MB | ✅ Done |
+| A-051 | PLN-003 sprint planning session | ARCH-CODEX | SPR-009-MB audit done | PLN-003.md | ✅ Done |
+| A-052 | BCK-001 update (B-057–B-066, M-040–M-058) | ARCH-CODEX | SPR-008/009 complete | BCK-001 current | ✅ Done |
 
 ---
 
@@ -108,14 +115,17 @@ version: 1.1.0
 
 | ID | Task | Category | Dependencies | Deliverable | Status |
 |:---|:-----|:---------|:-------------|:------------|:-------|
-| A-037 | Cross-service contract compliance test (mobile ↔ backend) | ARCH-INTEG | SPR-002-BE + SPR-002-MB complete | All routes return correct schemas | [ ] Open |
-| A-038 | Provision Fly.io staging environment | ARCH-INFRA | SPR-006-OPS, GOV-008 | `task-nibbles-api-staging` live | [ ] Open |
-| A-039 | Provision Fly.io production environment | ARCH-INFRA | A-038 passed | `task-nibbles-api` live | [ ] Open |
-| A-040 | Provision AWS S3 bucket + IAM policy | ARCH-INFRA | GOV-008 | Bucket created, keys issued | [ ] Open |
-| A-041 | Set all Fly.io secrets (staging + production) | ARCH-DEPLOY | A-038, A-039, A-040 | fly secrets set complete | [ ] Open |
-| A-042 | First deploy to staging | ARCH-DEPLOY | A-041, SPR-001-BE | Staging up, /health 200 | [ ] Open |
-| A-043 | Promote staging to production (post all audits) | ARCH-DEPLOY | All audits pass | Tag v1.0.0 on main | [ ] Open |
+| A-037 | Cross-service contract compliance test (mobile ↔ backend) | ARCH-INTEG | SPR-002-BE + SPR-002-MB complete | All routes return correct schemas | 🟡 Post-MVP |
+| A-038 | Provision Fly.io staging environment | ARCH-INFRA | SPR-006-OPS, GOV-008 | `task-nibbles-api-staging` live | ✅ Done |
+| A-039 | Provision Fly.io production environment | ARCH-INFRA | A-038 passed | `task-nibbles-api` live | ✅ Done |
+| A-040 | Provision AWS S3 bucket + IAM policy | ARCH-INFRA | GOV-008 | Bucket created, keys issued | ✅ Done |
+| A-041 | Set all Fly.io secrets (staging + production) | ARCH-DEPLOY | A-038, A-039, A-040 | fly secrets set complete | ✅ Done |
+| A-042 | First deploy to staging | ARCH-DEPLOY | A-041, SPR-001-BE | Staging up, /health 200 | ✅ Done |
+| A-043 | Promote staging to production (post all audits) | ARCH-DEPLOY | All audits pass | Tag v1.0.0 on main | ⏳ Pending Human approval |
 | A-044 | Configure custom domain + TLS (api.tasknibbles.com) | ARCH-DEPLOY | A-043 | Certificate issued, DNS verified | [ ] Open |
+| A-053 | Update CON-002 with 3 new SPR-009-MB endpoints | ARCH-CODEX | SPR-009-MB audit | CON-002 current | 🔴 Open (P0) |
+| A-054 | Create SPR-010-MB sprint doc | ARCH-CODEX | PLN-003 | SPR-010-MB.md | 🟡 Open |
+| A-055 | MANIFEST.yaml update (SPR-008, SPR-009, AUD-013, AUD-014, PLN-003) | ARCH-CODEX | All docs created | MANIFEST current | 🟡 Open |
 
 ---
 

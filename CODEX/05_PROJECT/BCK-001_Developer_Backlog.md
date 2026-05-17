@@ -87,8 +87,18 @@ version: 1.0.0
 | B-052 | Gamification engine: overdue task penalty (-3 per OVERDUE task nightly) | P2 | §5.5 | SPR-004-BE | [ ] |
 | B-053 | Badge award engine: idempotent checks for all 12 badges on task complete + nightly | P2 | §5.5 | SPR-004-BE | [ ] |
 | B-054 | GET /gamification/badges — return all user_badges with earned_at | P2 | §5.5 | SPR-004-BE | [ ] |
-| B-055 | Recurring task edit scope: PATCH /tasks/:id?scope=this_only or this_and_future | P1 | §5.4 | SPR-005-BE | [ ] |
-| B-056 | Recurring task delete scope: DELETE /tasks/:id?scope=this_only or this_and_future | P1 | §5.4 | SPR-005-BE | [ ] |
+| B-055 | Recurring task edit scope: PATCH /tasks/:id?scope=this_only or this_and_future | P1 | §5.4 | SPR-005-BE | ✅ Done |
+| B-056 | Recurring task delete scope: DELETE /tasks/:id?scope=this_only or this_and_future | P1 | §5.4 | SPR-005-BE | ✅ Done |
+| B-057 | Migration 0015: display_name VARCHAR(80) NULL on users table | P2 | §5.1 | SPR-009-MB | ✅ Done |
+| B-058 | Migration 0016: sprite_type, tree_type on gamification_state | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| B-059 | UserRepository.UpdateProfile() — display_name + timezone | P2 | §5.1 | SPR-009-MB | ✅ Done |
+| B-060 | UserRepository.UpdatePasswordHash() — bcrypt password update | P2 | §5.1 | SPR-009-MB | ✅ Done |
+| B-061 | GamificationRepository.UpdateCompanion() — persist sprite_type + tree_type | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| B-062 | POST /auth/change-password — verify current, hash new, store | P2 | §5.1 | SPR-009-MB | ✅ Done |
+| B-063 | PATCH /gamification/companion — validate + persist companion selection | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| B-064 | POST /api/v1/device-tokens — upsert FCM/APNs token for user | P1 | §4 | SPR-008-BE | [ ] |
+| B-065 | DELETE /api/v1/device-tokens/:token — revoke token on logout | P1 | §4 | SPR-008-BE | [ ] |
+| B-066 | Push notification dispatch service (APNs + FCM stub) | P1 | §4 | SPR-008-BE | [ ] |
 
 ---
 
@@ -131,10 +141,29 @@ version: 1.0.0
 | M-033 | Badge shelf widget (earned badges in colour, locked badges greyed out) | P2 | §5.5 | SPR-004-MB | [ ] |
 | M-034 | Badge award toast/celebration animation on unlock | P2 | §5.5 | SPR-004-MB | [ ] |
 | M-035 | Streak counter + grace day indicator in hero section | P2 | §5.5 | SPR-004-MB | [ ] |
-| M-036 | Recurring task toggle in task create/edit form | P1 | §5.4 | SPR-005-MB | [ ] |
-| M-037 | Recurrence schedule picker UI (daily / weekly / custom RRULE builder) | P1 | §5.4 | SPR-005-MB | [ ] |
-| M-038 | Recurring task edit scope dialog (This instance vs This and all future) | P1 | §5.4 | SPR-005-MB | [ ] |
-| M-039 | Display of recurring task instances in list (recurring indicator chip) | P1 | §5.4 | SPR-005-MB | [ ] |
+| M-036 | Recurring task toggle in task create/edit form | P1 | §5.4 | SPR-005-MB | ✅ Done |
+| M-037 | Recurrence schedule picker UI (daily / weekly / custom RRULE builder) | P1 | §5.4 | SPR-005-MB | ✅ Done |
+| M-038 | Recurring task edit scope dialog (This instance vs This and all future) | P1 | §5.4 | SPR-005-MB | ✅ Done |
+| M-039 | Display of recurring task instances in list (recurring indicator chip) | P1 | §5.4 | SPR-005-MB | ✅ Done |
+| M-040 | Session restore on cold launch (AuthRestoreSessionRequested on splash) | P0 | §5.1 | SPR-008-MB | ✅ Done |
+| M-041 | Runtime permission requests (camera, gallery, notifications, microphone) | P1 | §5.3 | SPR-008-MB | ✅ Done |
+| M-042 | Settings screen with logout, delete account, edit profile nav | P0 | §5.1 | SPR-008-MB | ✅ Done |
+| M-043 | Edit Profile screen — timezone picker (IANA TZDB) | P1 | §5.1 | SPR-008-MB | ✅ Done |
+| M-044 | Remember Me checkbox on login (persist flag in TokenStorage) | P1 | §5.1 | SPR-009-MB | ✅ Done |
+| M-045 | Pull-to-refresh Completer fix (spinner dismiss) | P1 | §5.2 | SPR-009-MB | ✅ Done |
+| M-046 | CompanionHealth enum — 5 health states from score ranges | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| M-047 | SpriteA (Round Nibbler) — 5-state CustomPainter animation | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| M-048 | SpriteB (Star Flare) — 5-state CustomPainter animation | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| M-049 | TreeA (Round Oak) — 5-state CustomPainter animation | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| M-050 | TreeB (Crystal Pine) — 5-state CustomPainter animation | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| M-051 | CompanionPickerScreen — 2×2 animated grid, saves via PATCH /gamification/companion | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| M-052 | HeroSection rewrite — renders animated companions; tap-to-pick | P2 | §5.5 | SPR-009-MB | ✅ Done |
+| M-053 | EditProfileScreen — display name field + change password section | P1 | §5.1 | SPR-009-MB | ✅ Done |
+| M-054 | Push notification permission request + device token registration | P1 | §4 | SPR-010-MB | [ ] |
+| M-055 | Empty state screens (task list, badges) | P2 | §3 | SPR-010-MB | [ ] |
+| M-056 | Loading skeleton for task list (shimmer) | P2 | §3 | SPR-010-MB | [ ] |
+| M-057 | App icon + splash screen branding (final assets) | P2 | §8 | SPR-010-MB | [ ] |
+| M-058 | Production APK v1.3 build + S3 distribution | P0 | §8 | SPR-010-MB | [ ] |
 
 ---
 

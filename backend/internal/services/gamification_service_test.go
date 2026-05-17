@@ -73,6 +73,17 @@ func (m *mockGamifStateRepo) UpdateTreeHealth(_ context.Context, _ uuid.UUID, ne
 	return nil
 }
 
+// Create satisfies the updated GamificationStateReader interface.
+// Returns a zeroed GamificationState to simulate lazy seeding in tests.
+func (m *mockGamifStateRepo) Create(_ context.Context, userID uuid.UUID) (*repositories.GamificationState, error) {
+	seeded := &repositories.GamificationState{
+		UserID:          userID,
+		TreeHealthScore: 50,
+	}
+	m.state = seeded
+	return seeded, nil
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // mockBadgeRepo — satisfies repositories.BadgeRepository
 // ────────────────────────────────────────────────────────────────────────────

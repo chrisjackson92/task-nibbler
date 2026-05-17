@@ -168,6 +168,9 @@ func (m *mockGamifSvc) GetBadges(_ context.Context, _ uuid.UUID) ([]*services.Ba
 
 func (m *mockGamifSvc) ApplyNightlyDecay(_ context.Context, _ uuid.UUID) error { return nil }
 func (m *mockGamifSvc) ApplyOverduePenalty(_ context.Context, _ uuid.UUID, _ int) error { return nil }
+func (m *mockGamifSvc) UpdateCompanion(_ context.Context, _ uuid.UUID, _, _ string) (*services.GamificationStateResponse, error) {
+	return nil, nil
+}
 
 // errGamifSvc always returns an error — tests gamification non-fatal behaviour.
 type errGamifSvc struct{}
@@ -183,6 +186,9 @@ func (e *errGamifSvc) GetBadges(_ context.Context, _ uuid.UUID) ([]*services.Bad
 }
 func (e *errGamifSvc) ApplyNightlyDecay(_ context.Context, _ uuid.UUID) error { return nil }
 func (e *errGamifSvc) ApplyOverduePenalty(_ context.Context, _ uuid.UUID, _ int) error { return nil }
+func (e *errGamifSvc) UpdateCompanion(_ context.Context, _ uuid.UUID, _, _ string) (*services.GamificationStateResponse, error) {
+	return nil, nil
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // CreateTask

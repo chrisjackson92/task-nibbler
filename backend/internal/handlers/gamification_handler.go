@@ -23,6 +23,7 @@ func NewGamificationHandler(gamif services.GamificationService) *GamificationHan
 func (h *GamificationHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.GET("/state", h.GetState)
 	r.GET("/badges", h.GetBadges)
+	r.PATCH("/companion", h.UpdateCompanion)
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -72,4 +73,40 @@ func (h *GamificationHandler) GetBadges(c *gin.Context) {
 		badges = []*services.BadgeListItem{}
 	}
 	c.JSON(http.StatusOK, gin.H{"data": badges})
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PATCH /gamification/companion
+// ────────────────────────────────────────────────────────────────────────────
+
+type updateCompanionRequest struct {
+	SpriteType string `json:"sprite_type" binding:"required,oneof=sprite_a sprite_b"`
+	TreeType   string `json:"tree_type"   binding:"required,oneof=tree_a tree_b"`
+}
+
+// UpdateCompanion godoc
+// @Summary      Update companion selection
+// @Description  Persists the user's sprite and tree selection.
+// @Tags         gamification
+// @Accept       json
+// @Produce      json
+// @Param        body body updateCompanionRequest true "Companion selection"
+// @Success      200  {object}  services.GamificationStateResponse
+// @Security     BearerAuth
+// @Router       /gamification/companion [patch]
+func (h *GamificationHandler) UpdateCompanion(c *gin.Context) {
+	userID := middleware.MustUserID(c)
+
+	var req updateCompanionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "VALIDATION_ERROR", "message": err.Error()})
+		return
+	}
+
+	state, err := h.gamif.UpdateCompanion(c.Request.Context(), userID, req.SpriteType, req.TreeType)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, state)
 }

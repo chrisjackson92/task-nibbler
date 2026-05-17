@@ -95,18 +95,18 @@ class GamificationDetailScreen extends StatelessWidget {
                     Expanded(
                       child: SizedBox(
                         height: 160,
-                        child:
-                            SpriteWidget(spriteState: gamState.spriteState),
+                        child: gamState.spriteType == 'sprite_b'
+                            ? SpriteBWidget(healthScore: gamState.treeHealthScore, size: 140)
+                            : SpriteAWidget(healthScore: gamState.treeHealthScore, size: 140),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: SizedBox(
                         height: 160,
-                        child: TreeWidget(
-                          treeState: gamState.treeState,
-                          healthScore: gamState.treeHealthScore,
-                        ),
+                        child: gamState.treeType == 'tree_b'
+                            ? TreeBWidget(healthScore: gamState.treeHealthScore, size: 140)
+                            : TreeAWidget(healthScore: gamState.treeHealthScore, size: 140),
                       ),
                     ),
                   ],

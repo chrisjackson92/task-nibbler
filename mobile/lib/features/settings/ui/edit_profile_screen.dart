@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/api/models/auth_models.dart';
+import '../../../core/widgets/error_snackbar.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_state.dart';
 import '../../auth/data/auth_repository.dart';
 
-/// Edit profile screen — timezone only for now.
-/// Accessible via Settings → edit icon on account tile.
+/// Full profile editing screen (SPR-009-MB):
+/// - Display name
+/// - Timezone (searchable IANA picker)
+/// - Change password
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -15,20 +19,32 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  late TextEditingController _tzCtrl;
-  bool _saving = false;
-  String? _error;
+  final _profileFormKey = GlobalKey<FormState>();
+  final _passwordFormKey = GlobalKey<FormState>();
 
-  // Common IANA timezones ordered by region for the picker list.
-  static const _commonTimezones = [
+  late final TextEditingController _displayNameCtrl;
+  late final TextEditingController _currentPasswordCtrl;
+  late final TextEditingController _newPasswordCtrl;
+  late final TextEditingController _confirmPasswordCtrl;
+
+  late String _selectedTimezone;
+  final _timezoneSearchCtrl = TextEditingController();
+
+  bool _savingProfile = false;
+  bool _savingPassword = false;
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+
+  // A curated list of common IANA timezone identifiers.
+  static const List<String> _allTimezones = [
     'UTC',
     'America/New_York',
     'America/Chicago',
     'America/Denver',
     'America/Los_Angeles',
-    'America/Phoenix',
     'America/Anchorage',
-    'Pacific/Honolulu',
+    'America/Honolulu',
     'America/Toronto',
     'America/Vancouver',
     'America/Sao_Paulo',
@@ -37,71 +53,104 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     'Europe/London',
     'Europe/Paris',
     'Europe/Berlin',
-    'Europe/Madrid',
-    'Europe/Rome',
-    'Europe/Amsterdam',
     'Europe/Moscow',
+    'Europe/Istanbul',
     'Africa/Cairo',
-    'Africa/Johannesburg',
+    'Africa/Nairobi',
     'Africa/Lagos',
     'Asia/Dubai',
     'Asia/Kolkata',
     'Asia/Dhaka',
     'Asia/Bangkok',
     'Asia/Singapore',
-    'Asia/Hong_Kong',
     'Asia/Shanghai',
     'Asia/Tokyo',
     'Asia/Seoul',
+    'Asia/Jakarta',
     'Australia/Sydney',
     'Australia/Melbourne',
     'Pacific/Auckland',
+    'Pacific/Honolulu',
   ];
 
   @override
   void initState() {
     super.initState();
     final authState = context.read<AuthBloc>().state;
-    final currentTz =
-        authState is AuthAuthenticated ? authState.user.timezone : 'UTC';
-    _tzCtrl = TextEditingController(text: currentTz);
+    AuthUser? user;
+    if (authState is AuthAuthenticated) user = authState.user;
+
+    _displayNameCtrl = TextEditingController(text: user?.displayName ?? '');
+    _currentPasswordCtrl = TextEditingController();
+    _newPasswordCtrl = TextEditingController();
+    _confirmPasswordCtrl = TextEditingController();
+    _selectedTimezone = user?.timezone ?? 'UTC';
   }
 
   @override
   void dispose() {
-    _tzCtrl.dispose();
+    _displayNameCtrl.dispose();
+    _timezoneSearchCtrl.dispose();
+    _currentPasswordCtrl.dispose();
+    _newPasswordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _pickTimezone() async {
-    final selected = await showSearch<String?>(
-      context: context,
-      delegate: _TimezoneSearchDelegate(_commonTimezones),
-    );
-    if (selected != null && mounted) {
-      _tzCtrl.text = selected;
-      setState(() => _error = null);
+  List<String> get _filteredTimezones {
+    final q = _timezoneSearchCtrl.text.toLowerCase();
+    if (q.isEmpty) return _allTimezones;
+    return _allTimezones.where((tz) => tz.toLowerCase().contains(q)).toList();
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_profileFormKey.currentState!.validate()) return;
+    setState(() => _savingProfile = true);
+    try {
+      final repo = context.read<AuthRepository>();
+      final user = await repo.updateProfile(
+        displayName: _displayNameCtrl.text.trim().isEmpty
+            ? null
+            : _displayNameCtrl.text.trim(),
+        timezone: _selectedTimezone,
+      );
+      if (!mounted) return;
+      context.read<AuthBloc>().add(AuthProfileUpdated(user: user));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Could not update profile.');
+    } finally {
+      if (mounted) setState(() => _savingProfile = false);
     }
   }
 
-  Future<void> _save() async {
-    if (_saving) return;
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-
+  Future<void> _changePassword() async {
+    if (!_passwordFormKey.currentState!.validate()) return;
+    if (_newPasswordCtrl.text != _confirmPasswordCtrl.text) {
+      showErrorSnackBar(context, 'New passwords do not match.');
+      return;
+    }
+    setState(() => _savingPassword = true);
     try {
-      final repo = context.read<AuthRepository>();
-      final updatedUser = await repo.updateTimezone(_tzCtrl.text.trim());
+      await context.read<AuthRepository>().changePassword(
+            currentPassword: _currentPasswordCtrl.text,
+            newPassword: _newPasswordCtrl.text,
+          );
       if (!mounted) return;
-      context.read<AuthBloc>().add(AuthProfileUpdated(user: updatedUser));
-      Navigator.of(context).pop();
-    } catch (_) {
+      _currentPasswordCtrl.clear();
+      _newPasswordCtrl.clear();
+      _confirmPasswordCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password changed successfully!')),
+      );
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Failed to update profile. Please try again.');
+      showErrorSnackBar(context, 'Could not change password. Check your current password.');
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _savingPassword = false);
     }
   }
 
@@ -109,129 +158,162 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        actions: [
-          TextButton(
-            key: const Key('edit_profile_save_button'),
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Edit Profile')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
-          Text(
-            'Timezone',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          InkWell(
-            key: const Key('edit_profile_timezone_picker'),
-            onTap: _pickTimezone,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: _error != null
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.outline,
+          // ── Profile section ───────────────────────────────────────────────
+          Text('Profile', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          Form(
+            key: _profileFormKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  key: const Key('edit_display_name_field'),
+                  controller: _displayNameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Display Name (optional)',
+                    prefixIcon: Icon(Icons.person_outline),
+                    hintText: 'How others see your name',
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.public_outlined, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _tzCtrl.text.isEmpty ? 'Select timezone' : _tzCtrl.text,
-                      style: theme.textTheme.bodyLarge,
+                const SizedBox(height: 16),
+                // Timezone picker
+                Text('Timezone', style: theme.textTheme.labelLarge),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _timezoneSearchCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Search timezones…',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 180,
+                  child: Card(
+                    clipBehavior: Clip.hardEdge,
+                    child: ListView.builder(
+                      itemCount: _filteredTimezones.length,
+                      itemBuilder: (_, i) {
+                        final tz = _filteredTimezones[i];
+                        final selected = tz == _selectedTimezone;
+                        return ListTile(
+                          dense: true,
+                          title: Text(tz,
+                              style: TextStyle(
+                                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                                color: selected ? theme.colorScheme.primary : null,
+                              )),
+                          trailing: selected
+                              ? Icon(Icons.check_rounded, color: theme.colorScheme.primary)
+                              : null,
+                          onTap: () => setState(() => _selectedTimezone = tz),
+                        );
+                      },
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.error),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Text(
-            'Timezone affects how due dates and recurring task resets are calculated.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const Key('edit_profile_save_button'),
+            onPressed: _savingProfile ? null : _saveProfile,
+            icon: _savingProfile
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_rounded),
+            label: const Text('Save Profile'),
+          ),
+
+          const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 16),
+
+          // ── Change password section ────────────────────────────────────────
+          Text('Change Password', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          Form(
+            key: _passwordFormKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  key: const Key('edit_current_password_field'),
+                  controller: _currentPasswordCtrl,
+                  obscureText: _obscureCurrent,
+                  decoration: InputDecoration(
+                    labelText: 'Current Password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: _toggleVisibility(
+                        _obscureCurrent, (v) => setState(() => _obscureCurrent = v)),
+                  ),
+                  validator: (v) =>
+                      v == null || v.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('edit_new_password_field'),
+                  controller: _newPasswordCtrl,
+                  obscureText: _obscureNew,
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    prefixIcon: const Icon(Icons.lock_outlined),
+                    suffixIcon: _toggleVisibility(
+                        _obscureNew, (v) => setState(() => _obscureNew = v)),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Required';
+                    if (v.length < 8) return 'Minimum 8 characters';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('edit_confirm_password_field'),
+                  controller: _confirmPasswordCtrl,
+                  obscureText: _obscureConfirm,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm New Password',
+                    prefixIcon: const Icon(Icons.lock_outlined),
+                    suffixIcon: _toggleVisibility(
+                        _obscureConfirm, (v) => setState(() => _obscureConfirm = v)),
+                  ),
+                  validator: (v) =>
+                      v == null || v.isEmpty ? 'Required' : null,
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const Key('edit_change_password_button'),
+            onPressed: _savingPassword ? null : _changePassword,
+            icon: _savingPassword
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.lock_reset_rounded),
+            label: const Text('Change Password'),
+          ),
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
-}
 
-// ── Timezone search delegate ──────────────────────────────────────────────────
-
-class _TimezoneSearchDelegate extends SearchDelegate<String?> {
-  _TimezoneSearchDelegate(this.timezones);
-
-  final List<String> timezones;
-
-  @override
-  String get searchFieldLabel => 'Search timezone…';
-
-  @override
-  List<Widget> buildActions(BuildContext context) => [
-        IconButton(
-          icon: const Icon(Icons.clear),
-          onPressed: () => query = '',
-        ),
-      ];
-
-  @override
-  Widget buildLeading(BuildContext context) => IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => close(context, null),
-      );
-
-  @override
-  Widget buildResults(BuildContext context) => _buildList(context);
-
-  @override
-  Widget buildSuggestions(BuildContext context) => _buildList(context);
-
-  Widget _buildList(BuildContext context) {
-    final filtered = query.isEmpty
-        ? timezones
-        : timezones
-            .where((tz) => tz.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-
-    return ListView.builder(
-      itemCount: filtered.length,
-      itemBuilder: (_, i) => ListTile(
-        leading: const Icon(Icons.schedule_outlined),
-        title: Text(filtered[i]),
-        onTap: () => close(context, filtered[i]),
-      ),
+  Widget _toggleVisibility(bool obscure, ValueChanged<bool> onToggle) {
+    return IconButton(
+      icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+      onPressed: () => onToggle(!obscure),
     );
   }
 }

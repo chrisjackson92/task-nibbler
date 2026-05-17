@@ -39,6 +39,8 @@ type GamificationStateResponse struct {
 	TreeHealthScore         int     `json:"tree_health_score"`
 	TreeState               string  `json:"tree_state"`   // THRIVING|HEALTHY|STRUGGLING|WITHERING
 	SpriteState             string  `json:"sprite_state"` // WELCOME|HAPPY|NEUTRAL|SAD
+	SpriteType              string  `json:"sprite_type"`  // sprite_a|sprite_b
+	TreeType                string  `json:"tree_type"`    // tree_a|tree_b
 	TotalBadgesEarned       int     `json:"total_badges_earned"`
 }
 
@@ -62,6 +64,7 @@ type GamificationService interface {
 	OnTaskCompleted(ctx context.Context, userID uuid.UUID) (*GamificationDelta, error)
 	GetState(ctx context.Context, userID uuid.UUID) (*GamificationStateResponse, error)
 	GetBadges(ctx context.Context, userID uuid.UUID) ([]*BadgeListItem, error)
+	UpdateCompanion(ctx context.Context, userID uuid.UUID, spriteType, treeType string) (*GamificationStateResponse, error)
 
 	// ApplyNightlyDecay applies zero-completion streak reset + tree health decay.
 	// Called by the nightly cron for users who had no completions yesterday.
@@ -289,7 +292,29 @@ func (s *gamificationService) GetState(ctx context.Context, userID uuid.UUID) (*
 		TreeHealthScore:       health,
 		TreeState:             computeTreeState(health),
 		SpriteState:           computeSpriteState(gs.HasCompletedFirstTask, streak, health),
+		SpriteType:            gs.SpriteType,
+		TreeType:              gs.TreeType,
 		TotalBadgesEarned:     len(userBadges),
+	}, nil
+}
+
+// UpdateCompanion persists the user's companion selection and returns updated state.
+func (s *gamificationService) UpdateCompanion(ctx context.Context, userID uuid.UUID, spriteType, treeType string) (*GamificationStateResponse, error) {
+	gs, err := s.stateRepo.UpdateCompanion(ctx, userID, spriteType, treeType)
+	if err != nil {
+		return nil, err
+	}
+	health := int(gs.TreeHealthScore)
+	streak := int(gs.StreakCount)
+	return &GamificationStateResponse{
+		StreakCount:           streak,
+		GraceActive:           gs.GraceUsedAt != nil,
+		HasCompletedFirstTask: gs.HasCompletedFirstTask,
+		TreeHealthScore:       health,
+		TreeState:             computeTreeState(health),
+		SpriteState:           computeSpriteState(gs.HasCompletedFirstTask, streak, health),
+		SpriteType:            gs.SpriteType,
+		TreeType:              gs.TreeType,
 	}, nil
 }
 

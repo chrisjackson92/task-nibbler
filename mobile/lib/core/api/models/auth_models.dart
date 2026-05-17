@@ -11,22 +11,25 @@ class AuthUser extends Equatable {
     required this.email,
     required this.timezone,
     required this.createdAt,
+    this.displayName,
   });
 
   final String id;
   final String email;
   final String timezone;
   final DateTime createdAt;
+  final String? displayName;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
         id: json['id'] as String,
         email: json['email'] as String,
         timezone: json['timezone'] as String? ?? 'UTC',
         createdAt: DateTime.parse(json['created_at'] as String),
+        displayName: json['display_name'] as String?,
       );
 
   @override
-  List<Object?> get props => [id, email, timezone, createdAt];
+  List<Object?> get props => [id, email, timezone, createdAt, displayName];
 }
 
 // ──────────────────────────────────────────────

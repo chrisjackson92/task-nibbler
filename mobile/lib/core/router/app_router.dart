@@ -8,6 +8,7 @@ import '../../features/auth/ui/forgot_password_screen.dart';
 import '../../features/auth/ui/login_screen.dart';
 import '../../features/auth/ui/register_screen.dart';
 import '../../features/auth/ui/reset_password_screen.dart';
+import '../../features/gamification/ui/companion_picker_screen.dart';
 import '../../features/gamification/ui/gamification_detail_screen.dart';
 import '../../features/settings/bloc/settings_cubit.dart';
 import '../../features/settings/ui/edit_profile_screen.dart';
@@ -34,6 +35,7 @@ abstract class AppRoutes {
   static const settings = '/settings';
   static const editProfile = '/settings/profile';
   static const gamification = '/gamification';
+  static const companionPicker = '/gamification/companion';
 }
 
 GoRouter createRouter({
@@ -192,6 +194,17 @@ GoRouter createRouter({
         builder: (_, __) => BlocProvider.value(
           value: Injection.instance.gamificationCubit,
           child: const GamificationDetailScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.companionPicker,
+        builder: (_, __) => MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: Injection.instance.gamificationCubit),
+            RepositoryProvider.value(
+                value: Injection.instance.gamificationRepository),
+          ],
+          child: const CompanionPickerScreen(),
         ),
       ),
     ],

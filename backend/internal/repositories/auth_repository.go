@@ -21,6 +21,7 @@ type User struct {
 	ID           uuid.UUID
 	Email        string
 	PasswordHash string
+	DisplayName  *string // nullable
 	Timezone     string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -55,6 +56,8 @@ type GamificationState struct {
 	GraceUsedAt           *time.Time
 	HasCompletedFirstTask bool
 	TreeHealthScore       int32
+	SpriteType            string // "sprite_a" | "sprite_b"
+	TreeType              string // "tree_a" | "tree_b"
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
@@ -74,7 +77,7 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash, timezo
 	row := r.pool.QueryRow(ctx,
 		`INSERT INTO users (email, password_hash, timezone)
 		 VALUES ($1, $2, $3)
-		 RETURNING id, email, password_hash, timezone, created_at, updated_at`,
+		 RETURNING id, email, password_hash, display_name, timezone, created_at, updated_at`,
 		strings.ToLower(email), passwordHash, timezone,
 	)
 	return scanUser(row)
@@ -83,7 +86,7 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash, timezo
 // GetByEmail retrieves a user by email address (case-insensitive lookup).
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, timezone, created_at, updated_at
+		`SELECT id, email, password_hash, display_name, timezone, created_at, updated_at
 		 FROM users WHERE email = $1 LIMIT 1`,
 		strings.ToLower(email),
 	)
@@ -93,7 +96,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, e
 // GetByID retrieves a user by primary key.
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, timezone, created_at, updated_at
+		`SELECT id, email, password_hash, display_name, timezone, created_at, updated_at
 		 FROM users WHERE id = $1 LIMIT 1`,
 		id,
 	)
@@ -114,15 +117,20 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, newHa
 	return err
 }
 
-// UpdateTimezone sets the user's timezone and returns the updated User row.
-func (r *UserRepository) UpdateTimezone(ctx context.Context, id uuid.UUID, timezone string) (*User, error) {
+// UpdateProfile sets display_name and timezone for the user and returns the updated row.
+func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, displayName *string, timezone string) (*User, error) {
 	row := r.pool.QueryRow(ctx,
-		`UPDATE users SET timezone = $2, updated_at = NOW()
+		`UPDATE users SET display_name = $2, timezone = $3, updated_at = NOW()
 		 WHERE id = $1
-		 RETURNING id, email, password_hash, timezone, created_at, updated_at`,
-		id, timezone,
+		 RETURNING id, email, password_hash, display_name, timezone, created_at, updated_at`,
+		id, displayName, timezone,
 	)
 	return scanUser(row)
+}
+
+// UpdateTimezone is kept for backwards-compat; use UpdateProfile for full edits.
+func (r *UserRepository) UpdateTimezone(ctx context.Context, id uuid.UUID, timezone string) (*User, error) {
+	return r.UpdateProfile(ctx, id, nil, timezone)
 }
 
 // ListAllUserIDs returns every user ID in the users table.
@@ -148,7 +156,7 @@ func (r *UserRepository) ListAllUserIDs(ctx context.Context) ([]uuid.UUID, error
 
 func scanUser(row pgx.Row) (*User, error) {
 	u := &User{}
-	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Timezone, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Timezone, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil // caller checks nil
@@ -156,6 +164,15 @@ func scanUser(row pgx.Row) (*User, error) {
 		return nil, err
 	}
 	return u, nil
+}
+
+// UpdatePasswordHash sets a new bcrypt hash for the user's password.
+func (r *UserRepository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, hash string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1`,
+		id, hash,
+	)
+	return err
 }
 
 // RefreshTokenRepository handles data access for the refresh_tokens table.
@@ -320,6 +337,8 @@ type GamificationStateReader interface {
 	UpdateNightlyDecay(ctx context.Context, userID uuid.UUID, newStreak, newHealth int) error
 	// UpdateTreeHealth sets tree_health_score = newHealth (overdue penalty in isolation).
 	UpdateTreeHealth(ctx context.Context, userID uuid.UUID, newHealth int) error
+	// UpdateCompanion persists the user's sprite and tree type selection.
+	UpdateCompanion(ctx context.Context, userID uuid.UUID, spriteType, treeType string) (*GamificationState, error)
 }
 
 // GamificationRepository handles data access for the gamification_state table.
@@ -338,7 +357,7 @@ func (r *GamificationRepository) Create(ctx context.Context, userID uuid.UUID) (
 		`INSERT INTO gamification_state (user_id, streak_count, has_completed_first_task, tree_health_score)
 		 VALUES ($1, 0, false, 50)
 		 RETURNING id, user_id, streak_count, last_active_date, grace_used_at,
-		           has_completed_first_task, tree_health_score, created_at, updated_at`,
+		           has_completed_first_task, tree_health_score, sprite_type, tree_type, created_at, updated_at`,
 		userID,
 	)
 	return scanGamificationState(row)
@@ -348,7 +367,7 @@ func (r *GamificationRepository) Create(ctx context.Context, userID uuid.UUID) (
 func (r *GamificationRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*GamificationState, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, user_id, streak_count, last_active_date, grace_used_at,
-		        has_completed_first_task, tree_health_score, created_at, updated_at
+		        has_completed_first_task, tree_health_score, sprite_type, tree_type, created_at, updated_at
 		 FROM gamification_state WHERE user_id = $1 LIMIT 1`,
 		userID,
 	)
@@ -380,7 +399,7 @@ func (r *GamificationRepository) UpdateOnComplete(
 		   updated_at               = NOW()
 		 WHERE user_id = $3
 		 RETURNING id, user_id, streak_count, last_active_date, grace_used_at,
-		           has_completed_first_task, tree_health_score, created_at, updated_at`,
+		           has_completed_first_task, tree_health_score, sprite_type, tree_type, created_at, updated_at`,
 		newStreakCount, lastActiveDate, userID,
 	)
 	gs, err := scanGamificationState(row)
@@ -397,13 +416,34 @@ func scanGamificationState(row pgx.Row) (*GamificationState, error) {
 	gs := &GamificationState{}
 	err := row.Scan(
 		&gs.ID, &gs.UserID, &gs.StreakCount, &gs.LastActiveDate, &gs.GraceUsedAt,
-		&gs.HasCompletedFirstTask, &gs.TreeHealthScore, &gs.CreatedAt, &gs.UpdatedAt,
+		&gs.HasCompletedFirstTask, &gs.TreeHealthScore, &gs.SpriteType, &gs.TreeType,
+		&gs.CreatedAt, &gs.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
+	}
+	return gs, nil
+}
+
+// UpdateCompanion persists the user's sprite and tree type choice.
+func (r *GamificationRepository) UpdateCompanion(ctx context.Context, userID uuid.UUID, spriteType, treeType string) (*GamificationState, error) {
+	row := r.pool.QueryRow(ctx,
+		`UPDATE gamification_state
+		 SET sprite_type = $2, tree_type = $3, updated_at = NOW()
+		 WHERE user_id = $1
+		 RETURNING id, user_id, streak_count, last_active_date, grace_used_at,
+		           has_completed_first_task, tree_health_score, sprite_type, tree_type, created_at, updated_at`,
+		userID, spriteType, treeType,
+	)
+	gs, err := scanGamificationState(row)
+	if err != nil {
+		return nil, err
+	}
+	if gs == nil {
+		return nil, ErrNotFound
 	}
 	return gs, nil
 }

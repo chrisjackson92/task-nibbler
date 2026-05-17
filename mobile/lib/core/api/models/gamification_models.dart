@@ -22,6 +22,8 @@ class GamificationStateData extends Equatable {
     required this.treeState,
     required this.spriteState,
     required this.totalBadgesEarned,
+    this.spriteType = 'sprite_a',
+    this.treeType = 'tree_a',
   });
 
   final int streakCount;
@@ -32,6 +34,8 @@ class GamificationStateData extends Equatable {
   final TreeState treeState;
   final SpriteState spriteState;
   final int totalBadgesEarned;
+  final String spriteType; // 'sprite_a' | 'sprite_b'
+  final String treeType;   // 'tree_a' | 'tree_b'
 
   factory GamificationStateData.fromJson(Map<String, dynamic> json) =>
       GamificationStateData(
@@ -42,7 +46,9 @@ class GamificationStateData extends Equatable {
         treeHealthScore: json['tree_health_score'] as int,
         treeState: _parseTreeState(json['tree_state'] as String),
         spriteState: _parseSpriteState(json['sprite_state'] as String),
-        totalBadgesEarned: json['total_badges_earned'] as int,
+        totalBadgesEarned: json['total_badges_earned'] as int? ?? 0,
+        spriteType: json['sprite_type'] as String? ?? 'sprite_a',
+        treeType: json['tree_type'] as String? ?? 'tree_a',
       );
 
   /// Applies a [GamificationDelta] from a task completion response,
@@ -63,6 +69,8 @@ class GamificationStateData extends Equatable {
         hasCompletedFirstTask: true,
       ),
       totalBadgesEarned: totalBadgesEarned + delta.badgesAwarded.length,
+      spriteType: spriteType,
+      treeType: treeType,
     );
   }
 
@@ -108,6 +116,8 @@ class GamificationStateData extends Equatable {
         treeState,
         spriteState,
         totalBadgesEarned,
+        spriteType,
+        treeType,
       ];
 }
 

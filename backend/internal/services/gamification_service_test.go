@@ -79,9 +79,20 @@ func (m *mockGamifStateRepo) Create(_ context.Context, userID uuid.UUID) (*repos
 	seeded := &repositories.GamificationState{
 		UserID:          userID,
 		TreeHealthScore: 50,
+		SpriteType:      "sprite_a",
+		TreeType:        "tree_a",
 	}
 	m.state = seeded
 	return seeded, nil
+}
+
+// UpdateCompanion satisfies the updated GamificationStateReader interface.
+func (m *mockGamifStateRepo) UpdateCompanion(_ context.Context, _ uuid.UUID, spriteType, treeType string) (*repositories.GamificationState, error) {
+	if m.state != nil {
+		m.state.SpriteType = spriteType
+		m.state.TreeType = treeType
+	}
+	return m.state, nil
 }
 
 // ────────────────────────────────────────────────────────────────────────────

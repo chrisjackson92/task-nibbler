@@ -42,6 +42,22 @@ class GamificationRepository {
       e.message ?? 'Gamification request failed.',
     );
   }
+
+  /// PATCH /gamification/companion — persists sprite and tree type selection.
+  Future<GamificationStateData> updateCompanion({
+    required String spriteType,
+    required String treeType,
+  }) async {
+    try {
+      final response = await dio.patch<Map<String, dynamic>>(
+        '/api/v1/gamification/companion',
+        data: {'sprite_type': spriteType, 'tree_type': treeType},
+      );
+      return GamificationStateData.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw _mapError(e);
+    }
+  }
 }
 
 class GamificationRepositoryException implements Exception {

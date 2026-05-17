@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberMe = true;
 
   @override
   void dispose() {
@@ -36,6 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
           AuthLoginRequested(
             email: _emailCtrl.text.trim(),
             password: _passwordCtrl.text,
+            rememberMe: _rememberMe,
           ),
         );
   }
@@ -139,14 +141,36 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
 
-                      // ── Forgot password link ──────────────────────────────
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () =>
-                              context.push(AppRoutes.forgotPassword),
-                          child: const Text('Forgot password?'),
-                        ),
+                      // ── Remember Me ──────────────────────────────────────
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              key: const Key('login_remember_me_checkbox'),
+                              value: _rememberMe,
+                              onChanged: (v) =>
+                                  setState(() => _rememberMe = v ?? true),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _rememberMe = !_rememberMe),
+                            child: Text(
+                              'Remember me',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ),
+                          const Spacer(),
+                          // ── Forgot password link ────────────────────────
+                          TextButton(
+                            onPressed: () =>
+                                context.push(AppRoutes.forgotPassword),
+                            child: const Text('Forgot password?'),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 24),
 

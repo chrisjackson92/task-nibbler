@@ -173,8 +173,9 @@ func main() {
 		gamif := api.Group("/gamification")
 		gamificationHandler.RegisterRoutes(gamif)
 
-		// User profile routes (SPR-008-MB)
+		// User profile routes (SPR-008-MB, SPR-009-MB)
 		api.PATCH("/users/me", userHandler.UpdateMe)
+		api.POST("/auth/change-password", userHandler.ChangePassword)
 
 	}
 

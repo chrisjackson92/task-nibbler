@@ -32,7 +32,7 @@ class AuthRepository {
 
   // ── Login ─────────────────────────────────────────────────────────────────
 
-  Future<AuthResponse> login(LoginRequest request) async {
+  Future<AuthResponse> login(LoginRequest request, {bool rememberMe = true}) async {
     final response = await dio.post<Map<String, dynamic>>(
       '/api/v1/auth/login',
       data: request.toJson(),
@@ -41,6 +41,7 @@ class AuthRepository {
     await tokenStorage.saveTokens(
       accessToken: auth.accessToken,
       refreshToken: auth.refreshToken,
+      persist: rememberMe,
     );
     return auth;
   }
@@ -112,14 +113,38 @@ class AuthRepository {
 
   // ── Profile update ────────────────────────────────────────────────────────
 
-  /// Updates the authenticated user's timezone.
+  /// Updates the authenticated user's display name and/or timezone.
   /// Returns the updated [AuthUser].
-  Future<AuthUser> updateTimezone(String timezone) async {
+  Future<AuthUser> updateProfile({String? displayName, required String timezone}) async {
     final response = await dio.patch<Map<String, dynamic>>(
       '/api/v1/users/me',
-      data: {'timezone': timezone},
+      data: {
+        if (displayName != null) 'display_name': displayName,
+        'timezone': timezone,
+      },
     );
     return AuthUser.fromJson(response.data!);
+  }
+
+  /// Kept for backwards-compat with existing code that calls updateTimezone.
+  Future<AuthUser> updateTimezone(String timezone) async =>
+      updateProfile(timezone: timezone);
+
+  // ── Change password ────────────────────────────────────────────────────────
+
+  /// Calls POST /api/v1/auth/change-password.
+  /// Throws [DioException] on current-password mismatch (HTTP 401).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await dio.post<Map<String, dynamic>>(
+      '/api/v1/auth/change-password',
+      data: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

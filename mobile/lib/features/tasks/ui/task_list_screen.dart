@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -48,12 +50,17 @@ class _TaskListScreenState extends State<TaskListScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () async {
+                    // Subscribe BEFORE dispatching to avoid missing state transitions.
+                    final completer = Completer<void>();
+                    late StreamSubscription<TaskListState> sub;
+                    sub = context.read<TaskListBloc>().stream.listen((state) {
+                      if (state is TaskListLoaded || state is TaskListError) {
+                        if (!completer.isCompleted) completer.complete();
+                        sub.cancel();
+                      }
+                    });
                     context.read<TaskListBloc>().add(const RefreshTasks());
-                    // Wait for the bloc to leave Loading state
-                    await context
-                        .read<TaskListBloc>()
-                        .stream
-                        .firstWhere((s) => s is! TaskListLoading);
+                    await completer.future;
                   },
                   child: CustomScrollView(
                   slivers: [

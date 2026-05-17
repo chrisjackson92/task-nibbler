@@ -15,9 +15,14 @@ sealed class AuthEvent {
 }
 
 final class AuthLoginRequested extends AuthEvent {
-  const AuthLoginRequested({required this.email, required this.password});
+  const AuthLoginRequested({
+    required this.email,
+    required this.password,
+    this.rememberMe = true,
+  });
   final String email;
   final String password;
+  final bool rememberMe;
 }
 
 final class AuthRegisterRequested extends AuthEvent {
@@ -102,6 +107,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final response = await _authRepository.login(
         LoginRequest(email: event.email, password: event.password),
+        rememberMe: event.rememberMe,
       );
       emit(AuthAuthenticated(user: response.user));
     } on DioException catch (e) {

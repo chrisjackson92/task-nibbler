@@ -55,6 +55,13 @@ GoRouter createRouter({
       }
 
       final isAuthenticated = authState is AuthAuthenticated;
+
+      // Splash is ONLY valid during AuthRestoring. Once restore resolves,
+      // push the user to the right destination regardless of isAuthPath.
+      if (state.matchedLocation == AppRoutes.splash) {
+        return isAuthenticated ? AppRoutes.tasks : AppRoutes.login;
+      }
+
       final isOnAuthPath = _isAuthPath(state.uri.path);
 
       if (!isAuthenticated && !isOnAuthPath) return AppRoutes.login;
@@ -192,7 +199,6 @@ GoRouter createRouter({
 }
 
 bool _isAuthPath(String path) =>
-    path == AppRoutes.splash ||
     path == AppRoutes.login ||
     path == AppRoutes.register ||
     path == AppRoutes.forgotPassword ||

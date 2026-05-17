@@ -53,6 +53,17 @@ final class AuthResetPasswordRequested extends AuthEvent {
   final String newPassword;
 }
 
+/// Fired on app startup to restore session from stored refresh token.
+final class AuthRestoreSessionRequested extends AuthEvent {
+  const AuthRestoreSessionRequested();
+}
+
+/// Fired after a successful profile update (e.g. timezone change).
+final class AuthProfileUpdated extends AuthEvent {
+  const AuthProfileUpdated({required this.user});
+  final AuthUser user;
+}
+
 // ──────────────────────────────────────────────
 // BLoC
 // ──────────────────────────────────────────────
@@ -74,6 +85,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthTokenExpired>(_onTokenExpired);
     on<AuthForgotPasswordRequested>(_onForgotPasswordRequested);
     on<AuthResetPasswordRequested>(_onResetPasswordRequested);
+    on<AuthRestoreSessionRequested>(_onRestoreSession);
+    on<AuthProfileUpdated>(_onProfileUpdated);
   }
 
   final AuthRepository _authRepository;
@@ -172,5 +185,33 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } on DioException catch (e) {
       emit(AuthError(AuthRepository.mapError(e)));
     }
+  }
+
+  /// Restores session on app startup by exchanging stored refresh token.
+  /// Emits [AuthRestoring] while in progress, then [AuthAuthenticated] or
+  /// [AuthUnauthenticated]. Silent — never emits [AuthError].
+  Future<void> _onRestoreSession(
+    AuthRestoreSessionRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthRestoring());
+    try {
+      final auth = await _authRepository.restoreSession();
+      if (auth != null) {
+        emit(AuthAuthenticated(user: auth.user));
+      } else {
+        emit(const AuthUnauthenticated());
+      }
+    } catch (_) {
+      emit(const AuthUnauthenticated());
+    }
+  }
+
+  /// Updates the in-memory user after a successful profile PATCH.
+  void _onProfileUpdated(
+    AuthProfileUpdated event,
+    Emitter<AuthState> emit,
+  ) {
+    emit(AuthAuthenticated(user: event.user));
   }
 }

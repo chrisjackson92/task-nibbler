@@ -114,6 +114,17 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, newHa
 	return err
 }
 
+// UpdateTimezone sets the user's timezone and returns the updated User row.
+func (r *UserRepository) UpdateTimezone(ctx context.Context, id uuid.UUID, timezone string) (*User, error) {
+	row := r.pool.QueryRow(ctx,
+		`UPDATE users SET timezone = $2, updated_at = NOW()
+		 WHERE id = $1
+		 RETURNING id, email, password_hash, timezone, created_at, updated_at`,
+		id, timezone,
+	)
+	return scanUser(row)
+}
+
 // ListAllUserIDs returns every user ID in the users table.
 // Used by GamificationNightlyJob to fan-out decay/penalty over all users.
 // Full-table scan is acceptable at MVP scale; add pagination if user count exceeds 10k.
@@ -298,6 +309,9 @@ func scanPasswordResetToken(row pgx.Row) (*PasswordResetToken, error) {
 // Declared here (in the producer package) rather than in services/ to avoid
 // import cycles — services imports repositories, not vice versa.
 type GamificationStateReader interface {
+	// Create seeds an initial gamification row for the user.
+	// Used for lazy seeding if the registration seed failed non-fatally.
+	Create(ctx context.Context, userID uuid.UUID) (*GamificationState, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*GamificationState, error)
 	UpdateOnComplete(ctx context.Context, userID uuid.UUID, newStreakCount int, lastActiveDate time.Time) (*GamificationState, error)
 	// UpdateGraceUsedAt sets grace_used_at = graceDate (grace day consumed, streak preserved).

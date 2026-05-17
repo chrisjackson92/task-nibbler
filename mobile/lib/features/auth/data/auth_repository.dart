@@ -90,6 +90,38 @@ class AuthRepository {
     await tokenStorage.clearTokens();
   }
 
+  // ── Session restore ───────────────────────────────────────────────────────
+
+  /// Reads the stored refresh token and silently exchanges it for a new pair.
+  /// Returns [AuthResponse] on success or null if no token stored.
+  /// Never throws — caller should treat null / exception as unauthenticated.
+  Future<AuthResponse?> restoreSession() async {
+    final refreshToken = await tokenStorage.getRefreshToken();
+    if (refreshToken == null) return null;
+    final response = await dio.post<Map<String, dynamic>>(
+      '/api/v1/auth/refresh',
+      data: RefreshRequest(refreshToken: refreshToken).toJson(),
+    );
+    final auth = AuthResponse.fromJson(response.data!);
+    await tokenStorage.saveTokens(
+      accessToken: auth.accessToken,
+      refreshToken: auth.refreshToken,
+    );
+    return auth;
+  }
+
+  // ── Profile update ────────────────────────────────────────────────────────
+
+  /// Updates the authenticated user's timezone.
+  /// Returns the updated [AuthUser].
+  Future<AuthUser> updateTimezone(String timezone) async {
+    final response = await dio.patch<Map<String, dynamic>>(
+      '/api/v1/users/me',
+      data: {'timezone': timezone},
+    );
+    return AuthUser.fromJson(response.data!);
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   /// Maps a [DioException] error code to a user-friendly message

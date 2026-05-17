@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/chrisjackson92/task-nibbler/backend/internal/repositories"
@@ -103,7 +104,14 @@ func NewGamificationService(
 func (s *gamificationService) OnTaskCompleted(ctx context.Context, userID uuid.UUID) (*GamificationDelta, error) {
 	gs, err := s.stateRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, repositories.ErrNotFound) {
+			return nil, err
+		}
+		// Lazy seed: registration seed failed non-fatally — create the row now.
+		gs, err = s.stateRepo.Create(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	todayUTC := time.Now().UTC().Truncate(24 * time.Hour)
@@ -243,7 +251,14 @@ func (s *gamificationService) evaluateInstantBadges(
 func (s *gamificationService) GetState(ctx context.Context, userID uuid.UUID) (*GamificationStateResponse, error) {
 	gs, err := s.stateRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, repositories.ErrNotFound) {
+			return nil, err
+		}
+		// Lazy seed if registration seed failed non-fatally.
+		gs, err = s.stateRepo.Create(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Count earned badges

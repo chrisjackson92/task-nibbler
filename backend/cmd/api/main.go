@@ -111,7 +111,7 @@ func main() {
 	taskHandler := handlers.NewTaskHandler(taskSvc, recurringSvc)
 	attachmentHandler := handlers.NewAttachmentHandler(attachmentSvc)
 	gamificationHandler := handlers.NewGamificationHandler(gamifSvc)
-
+	userHandler := handlers.NewUserHandler(userRepo)
 
 	// Setup router
 	if cfg.IsProduction() {
@@ -172,6 +172,9 @@ func main() {
 		// Gamification routes (B-038, B-054) — SPR-004-BE
 		gamif := api.Group("/gamification")
 		gamificationHandler.RegisterRoutes(gamif)
+
+		// User profile routes (SPR-008-MB)
+		api.PATCH("/users/me", userHandler.UpdateMe)
 
 	}
 

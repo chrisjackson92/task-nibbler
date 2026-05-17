@@ -21,6 +21,11 @@ Future<void> main() async {
   // ── DI ────────────────────────────────────────────────────────────────────
   final injection = await Injection.initialise();
 
+  // ── Session restore (fires before first frame is painted) ─────────────────
+  // Reads stored refresh token and silently re-authenticates the user so they
+  // don't have to log in every time they open the app.
+  injection.authBloc.add(const AuthRestoreSessionRequested());
+
   runApp(TaskNibblesApp(injection: injection));
 }
 

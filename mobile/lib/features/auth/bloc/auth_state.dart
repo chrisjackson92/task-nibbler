@@ -14,6 +14,11 @@ final class AuthInitial extends AuthState {
   const AuthInitial();
 }
 
+/// Session is being restored from stored tokens on app startup.
+final class AuthRestoring extends AuthState {
+  const AuthRestoring();
+}
+
 /// Auth operation in progress (login, register, logout, delete).
 final class AuthLoading extends AuthState {
   const AuthLoading();

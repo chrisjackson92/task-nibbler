@@ -46,7 +46,16 @@ class _TaskListScreenState extends State<TaskListScreen> {
             children: [
               const OfflineBanner(),
               Expanded(
-                child: CustomScrollView(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    context.read<TaskListBloc>().add(const RefreshTasks());
+                    // Wait for the bloc to leave Loading state
+                    await context
+                        .read<TaskListBloc>()
+                        .stream
+                        .firstWhere((s) => s is! TaskListLoading);
+                  },
+                  child: CustomScrollView(
                   slivers: [
                     SliverAppBar(
                       floating: true,
@@ -141,6 +150,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       },
                     ),
                   ],
+                  ),
                 ),
               ),
             ],

@@ -10,6 +10,7 @@ import '../../features/auth/ui/register_screen.dart';
 import '../../features/auth/ui/reset_password_screen.dart';
 import '../../features/gamification/ui/gamification_detail_screen.dart';
 import '../../features/settings/bloc/settings_cubit.dart';
+import '../../features/settings/ui/edit_profile_screen.dart';
 import '../../features/settings/ui/settings_screen.dart';
 import '../../features/tasks/bloc/task_form_cubit.dart';
 import '../../features/tasks/bloc/task_list_bloc.dart';
@@ -21,6 +22,7 @@ import '../di/injection.dart';
 
 /// Route name constants — feature code MUST use these, never bare strings.
 abstract class AppRoutes {
+  static const splash = '/splash';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
@@ -30,6 +32,7 @@ abstract class AppRoutes {
   static const taskDetail = '/tasks/:id';
   static const taskEdit = '/tasks/:id/edit';
   static const settings = '/settings';
+  static const editProfile = '/settings/profile';
   static const gamification = '/gamification';
 }
 
@@ -43,6 +46,14 @@ GoRouter createRouter({
     initialLocation: AppRoutes.tasks,
     redirect: (context, state) {
       final authState = authBloc.state;
+
+      // During session restore — hold at splash, never bounce to login.
+      if (authState is AuthRestoring) {
+        return state.matchedLocation == AppRoutes.splash
+            ? null
+            : AppRoutes.splash;
+      }
+
       final isAuthenticated = authState is AuthAuthenticated;
       final isOnAuthPath = _isAuthPath(state.uri.path);
 
@@ -52,6 +63,12 @@ GoRouter createRouter({
     },
     refreshListenable: _BlocListenable(authBloc.stream),
     routes: [
+      // ── Splash (session restore) ─────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (_, __) => const _SplashScreen(),
+      ),
+
       // ── Auth ────────────────────────────────────────────────────────────────
       GoRoute(
         path: AppRoutes.login,
@@ -154,6 +171,13 @@ GoRouter createRouter({
           child: const SettingsScreen(),
         ),
       ),
+      GoRoute(
+        path: AppRoutes.editProfile,
+        builder: (_, __) => RepositoryProvider.value(
+          value: Injection.instance.authRepository,
+          child: const EditProfileScreen(),
+        ),
+      ),
 
       // ── Gamification ──────────────────────────────────────────────────────────
       GoRoute(
@@ -168,10 +192,44 @@ GoRouter createRouter({
 }
 
 bool _isAuthPath(String path) =>
+    path == AppRoutes.splash ||
     path == AppRoutes.login ||
     path == AppRoutes.register ||
     path == AppRoutes.forgotPassword ||
     path.startsWith(AppRoutes.resetPassword);
+
+// ── Splash screen ─────────────────────────────────────────────────────────────
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '🌱',
+              style: theme.textTheme.displayLarge,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Task Nibbles',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // Bridges Stream to Listenable for go_router refresh.
 class _BlocListenable extends ChangeNotifier {

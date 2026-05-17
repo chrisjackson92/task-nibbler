@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/app_router.dart';
 import '../bloc/settings_cubit.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_state.dart';
@@ -74,6 +76,12 @@ class SettingsScreen extends StatelessWidget {
                     style: theme.textTheme.bodyLarge,
                   ),
                   subtitle: Text('Timezone: ${user.timezone}'),
+                  trailing: IconButton(
+                    key: const Key('settings_edit_profile_button'),
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Edit profile',
+                    onPressed: () => context.push(AppRoutes.editProfile),
+                  ),
                 ),
 
               const Divider(),

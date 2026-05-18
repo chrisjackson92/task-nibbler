@@ -1,140 +1,344 @@
 ---
 id: CON-002
-title: "API Contract — What the API Looks Like"
+title: "API Contract — Task Nibbles REST API"
 type: reference
-status: DRAFT
+status: APPROVED
 owner: architect
 agents: [developer, tester]
 tags: [architecture, contract, api, routes, schemas]
 related: [BLU-002, BLU-003, BLU-004, CON-001]
-created: [YYYY-MM-DD]
-updated: [YYYY-MM-DD]
-version: 1.0.0
+created: 2026-05-14
+updated: 2026-05-18
+version: 2.0.0
 ---
 
 > **Amendment log:**
-> *(Record all contract changes here with date, version, and reason — e.g., "v1.1.0 (2026-06-01): Added pagination to GET /api/items — BCK-001 B-012")*
+> - v1.0.0 (2026-05-14): Initial template placeholder
+> - v2.0.0 (2026-05-18): Full rewrite — all routes from SPR-001-BE through SPR-009-MB documented [A-053]
 
-> **BLUF:** This contract defines WHAT the API looks like: every route, its request/response schema, required fields, and authorization rules. The backend MUST implement these routes. The frontend MUST call only these routes. Any additions or changes require an `EVO-` doc and Human approval.
+> **BLUF:** This contract defines every route in the Task Nibbles API. All routes are prefixed `/api/v1`. Bearer token = JWT access token in `Authorization: Bearer <token>` header. Any additions require an `EVO-` doc and Human approval before implementation.
 
-> [!IMPORTANT]
-> **This is a template.** Replace all `[PLACEHOLDER]` sections with the actual routes, schemas, and DTO definitions for your project. The Architect completes this document based on PRJ-001 feature specifications and BLU-003 architecture decisions.
-
-# API Contract
+# API Contract — Task Nibbles REST API
 
 > **"The route table is the law. If it's not in this document, it's not in the API."**
 
 ---
 
-## How to Use This Document
+## Base URL
 
-1. **Backend Developer Agent:** Implement every route listed here exactly. Route structure, method, request shape, and response codes are binding. Do not add routes that aren't here.
-2. **Frontend Developer Agent:** Call only routes listed here. The DTO shapes define the TypeScript types you work with.
-3. **Adding a route:** Open an `EVO-NNN.md`, propose the addition, wait for Architect approval, then update this document.
+| Environment | Base URL |
+|:------------|:---------|
+| Staging | `https://task-nibbles-api-staging.fly.dev/api/v1` |
+| Production | `https://task-nibbles-api.fly.dev/api/v1` |
+
+All routes below are relative to the base URL.
 
 ---
 
 ## 1. Auth Routes
 
-### POST `/api/auth/register`
+### POST `/auth/register`
 - **Auth:** None
-- **Request:** `{ [field]: [type], [field]: [type] }`
-- **Response 201:** `{ accessToken: string, user: { id: [type], [fields] } }`
-- **Response 409:** Account already exists
-- **Response 422:** Validation errors
+- **Rate limit:** 5 req/min per IP
+- **Request:** `{ email: string, password: string, timezone?: string }`
+- **Response 201:** `AuthResponse`
+- **Response 409:** `EMAIL_ALREADY_EXISTS`
+- **Response 422:** `VALIDATION_ERROR`
 
-### POST `/api/auth/login`
+### POST `/auth/login`
 - **Auth:** None
-- **Request:** `{ [credential_field]: [type], [secret_field]: [type] }`
-- **Response 200:** `{ accessToken: string, user: { id: [type], [fields] } }` [+ cookie if applicable]
-- **Response 401:** Invalid credentials
-- **Response 423:** Account locked
+- **Rate limit:** 5 req/min per IP
+- **Request:** `{ email: string, password: string }`
+- **Response 200:** `AuthResponse`
+- **Response 401:** `UNAUTHORIZED`
 
-### POST `/api/auth/refresh`
-- **Auth:** [Cookie / refresh token in body / header]
-- **Request:** [Empty / `{ refreshToken: string }`]
-- **Response 200:** `{ accessToken: string }` [+ new cookie if rotating]
-- **Response 401:** Invalid, expired, or revoked refresh token
+### POST `/auth/refresh`
+- **Auth:** None
+- **Request:** `{ refresh_token: string }`
+- **Response 200:** `RefreshResponse`
+- **Response 401:** `REFRESH_TOKEN_EXPIRED` | `REFRESH_TOKEN_REVOKED`
 
-### POST `/api/auth/logout`
+### POST `/auth/logout`
 - **Auth:** Bearer token
-- **Request:** Empty body
+- **Request:** `{ refresh_token: string }`
 - **Response 204:** Token revoked
 
+### POST `/auth/forgot-password`
+- **Auth:** None
+- **Rate limit:** 5 req/min per IP
+- **Request:** `{ email: string }`
+- **Response 200:** Always succeeds (prevents email enumeration)
+
+### POST `/auth/reset-password`
+- **Auth:** None
+- **Request:** `{ token: string, new_password: string }`
+- **Response 200:** Password updated
+- **Response 401:** `TOKEN_INVALID` | `TOKEN_EXPIRED`
+
+### POST `/auth/change-password` *(added SPR-009-MB)*
+- **Auth:** Bearer token
+- **Request:** `{ current_password: string, new_password: string }`
+- **Response 200:** `{ message: "password updated" }`
+- **Response 401:** `UNAUTHORIZED` (current password mismatch)
+- **Response 422:** `VALIDATION_ERROR` (new_password < 8 chars)
+
+### DELETE `/auth/account`
+- **Auth:** Bearer token
+- **Response 204:** All user data deleted (tasks, attachments, gamification, tokens)
+
 ---
 
-## 2. [Resource Name — e.g., "User"] Routes
+## 2. User Routes
 
-> Add one section per resource domain. Document every route the application will support in MVP.
-
-### GET `/api/[resource]`
+### GET `/users/me`
 - **Auth:** Bearer token
-- **Query:** `[optional query params with types — e.g., ?status=active&page=1&pageSize=20]`
-- **Response 200:** `[ResourceDto][]`
+- **Response 200:** `UserDto`
 
-### POST `/api/[resource]`
+### PATCH `/users/me`
 - **Auth:** Bearer token
-- **Request:** `{ [field]: [type], [optional_field]?: [type] }`
-- **Response 201:** Created `[ResourceDto]` + `Location` header
-- **Response 409:** [Conflict condition — e.g., duplicate name]
-- **Response 422:** Validation errors
+- **Request:** `{ timezone?: string, display_name?: string }` *(display_name added SPR-009-MB)*
+- **Response 200:** `UserDto`
+- **Response 422:** `VALIDATION_ERROR`
 
-### GET `/api/[resource]/{id}`
+---
+
+## 3. Task Routes
+
+### GET `/tasks`
 - **Auth:** Bearer token
-- **Response 200:** `[ResourceDto]`
-- **Response 404:** Not found or not owned by caller
+- **Query params:**
+  - `status` — `pending | in_progress | completed | cancelled`
+  - `priority` — `low | medium | high | urgent`
+  - `type` — `personal | work | health | errand`
+  - `search` — full-text search on title
+  - `from` — ISO 8601 date (due_date ≥)
+  - `to` — ISO 8601 date (due_date ≤)
+  - `sort` — `due_date | created_at | sort_order | priority`
+  - `order` — `asc | desc`
+- **Response 200:** `TaskDto[]`
 
-### PUT `/api/[resource]/{id}`
+### POST `/tasks`
+- **Auth:** Bearer token
+- **Request:** `CreateTaskRequest`
+- **Response 201:** `TaskDto`
+- **Response 422:** `VALIDATION_ERROR`
+
+### GET `/tasks/:id`
 - **Auth:** Bearer token (owner only)
-- **Request:** `{ [field]?: [type] }` — all fields optional for partial update
-- **Response 200:** Updated `[ResourceDto]`
-- **Response 404:** Not found
+- **Response 200:** `TaskDto`
+- **Response 404:** `NOT_FOUND`
 
-### DELETE `/api/[resource]/{id}`
+### PATCH `/tasks/:id`
 - **Auth:** Bearer token (owner only)
+- **Query:** `?scope=this_only | this_and_future` (recurring tasks only)
+- **Request:** `UpdateTaskRequest` (all fields optional)
+- **Response 200:** `TaskDto`
+- **Response 404:** `NOT_FOUND`
+
+### DELETE `/tasks/:id`
+- **Auth:** Bearer token (owner only)
+- **Query:** `?scope=this_only | this_and_future` (recurring tasks only)
 - **Response 204:** Deleted
 
+### POST `/tasks/:id/complete`
+- **Auth:** Bearer token (owner only)
+- **Request:** Empty body
+- **Response 200:** `{ task: TaskDto, gamification_delta: GamificationDelta }`
+- **Response 404:** `NOT_FOUND`
+- **Response 409:** `TASK_ALREADY_COMPLETED`
+
+### PATCH `/tasks/:id/sort`
+- **Auth:** Bearer token (owner only)
+- **Request:** `{ sort_order: int }`
+- **Response 200:** `TaskDto`
+
 ---
 
-## 3. [Second Resource] Routes
+## 4. Attachment Routes
 
-*(Copy the section template above for each additional resource domain)*
+### POST `/tasks/:id/attachments`
+- **Auth:** Bearer token (owner only)
+- **Request:** `{ file_name: string, content_type: string, file_size: int }`
+- **Response 201:** `{ attachment: AttachmentDto, upload_url: string }` (upload_url = presigned S3 PUT URL, TTL 15 min)
+
+### POST `/tasks/:id/attachments/:attachment_id/confirm`
+- **Auth:** Bearer token (owner only)
+- **Request:** Empty body (call after S3 upload completes)
+- **Response 200:** `AttachmentDto` (status → COMPLETE)
+
+### GET `/tasks/:id/attachments`
+- **Auth:** Bearer token (owner only)
+- **Response 200:** `AttachmentDto[]`
+
+### GET `/tasks/:id/attachments/:attachment_id/url`
+- **Auth:** Bearer token (owner only)
+- **Response 200:** `{ url: string }` (presigned S3 GET URL, TTL 60 min)
+
+### DELETE `/tasks/:id/attachments/:attachment_id`
+- **Auth:** Bearer token (owner only)
+- **Response 204:** Deleted from S3 + DB
+
+---
+
+## 5. Gamification Routes
+
+### GET `/gamification/state`
+- **Auth:** Bearer token
+- **Response 200:** `GamificationStateResponse`
+
+### GET `/gamification/badges`
+- **Auth:** Bearer token
+- **Response 200:** `BadgeListItem[]`
+
+### PATCH `/gamification/companion` *(added SPR-009-MB)*
+- **Auth:** Bearer token
+- **Request:** `{ sprite_type: "sprite_a" | "sprite_b", tree_type: "tree_a" | "tree_b" }`
+- **Response 200:** `GamificationStateResponse`
+- **Response 422:** `VALIDATION_ERROR` (invalid companion type)
+
+---
+
+## 6. System Routes
+
+### GET `/health`
+- **Auth:** None
+- **Response 200:** `{ status: "ok", db: "ok", uptime_seconds: int, version: string }`
 
 ---
 
 ## N. DTO Reference
 
-> Define the canonical shape of every DTO used in request/response bodies. This is the source of truth for both the backend (what to serialize) and the frontend (what TypeScript types look like).
+### AuthResponse
+```json
+{
+  "access_token": "string (JWT)",
+  "refresh_token": "string (opaque)",
+  "user": "UserDto"
+}
+```
 
-### [ResourceDto]
+### RefreshResponse
+```json
+{
+  "access_token": "string (JWT)",
+  "refresh_token": "string (opaque, rotated)"
+}
+```
 
+### UserDto
 ```json
 {
   "id": "uuid",
-  "[field]": "[type]",
-  "[optional_field]": "[type]?",
-  "createdAt": "datetime (ISO 8601)",
-  "updatedAt": "datetime (ISO 8601)"
+  "email": "string",
+  "timezone": "string (IANA, e.g. America/New_York)",
+  "display_name": "string | null",
+  "created_at": "datetime (ISO 8601)"
 }
 ```
 
-### [Create/UpdateRequestDto]
-
+### TaskDto
 ```json
 {
-  "[required_field]": "[type]",
-  "[optional_field]?": "[type]"
+  "id": "uuid",
+  "user_id": "uuid",
+  "title": "string",
+  "description": "string | null",
+  "status": "pending | in_progress | completed | cancelled",
+  "priority": "low | medium | high | urgent",
+  "type": "personal | work | health | errand",
+  "due_date": "datetime (ISO 8601) | null",
+  "address": "string | null",
+  "sort_order": "int",
+  "is_overdue": "bool",
+  "rrule": "string (RFC 5545 RRULE) | null",
+  "recurring_rule_id": "uuid | null",
+  "cancelled_at": "datetime | null",
+  "completed_at": "datetime | null",
+  "created_at": "datetime (ISO 8601)",
+  "updated_at": "datetime (ISO 8601)"
 }
 ```
 
-### PaginatedResponse (if used)
-
+### CreateTaskRequest
 ```json
 {
-  "items": "[ResourceDto][]",
-  "total": "int",
-  "page": "int",
-  "pageSize": "int"
+  "title": "string (required)",
+  "description": "string?",
+  "priority": "low | medium | high | urgent (default: medium)",
+  "type": "personal | work | health | errand (default: personal)",
+  "due_date": "datetime?",
+  "address": "string?",
+  "rrule": "string?"
+}
+```
+
+### UpdateTaskRequest
+```json
+{
+  "title": "string?",
+  "description": "string?",
+  "status": "pending | in_progress | completed | cancelled?",
+  "priority": "low | medium | high | urgent?",
+  "type": "personal | work | health | errand?",
+  "due_date": "datetime?",
+  "address": "string?"
+}
+```
+
+### AttachmentDto
+```json
+{
+  "id": "uuid",
+  "task_id": "uuid",
+  "file_name": "string",
+  "content_type": "string (MIME)",
+  "file_size": "int (bytes)",
+  "status": "PENDING | COMPLETE",
+  "s3_key": "string",
+  "created_at": "datetime (ISO 8601)"
+}
+```
+
+### GamificationStateResponse
+```json
+{
+  "user_id": "uuid",
+  "streak_count": "int",
+  "tree_health_score": "int (0–100)",
+  "grace_active": "bool",
+  "grace_used_at": "datetime | null",
+  "has_completed_first_task": "bool",
+  "sprite_state": "welcome | happy | neutral | sad",
+  "tree_state": "thriving | healthy | struggling | withering",
+  "sprite_type": "sprite_a | sprite_b",
+  "tree_type": "tree_a | tree_b",
+  "total_badges_earned": "int",
+  "last_task_completed_at": "datetime | null",
+  "updated_at": "datetime (ISO 8601)"
+}
+```
+
+### GamificationDelta
+```json
+{
+  "streak_before": "int",
+  "streak_after": "int",
+  "health_before": "int",
+  "health_after": "int",
+  "badges_awarded": "BadgeListItem[]"
+}
+```
+
+### BadgeListItem
+```json
+{
+  "id": "uuid",
+  "name": "string",
+  "description": "string",
+  "icon": "string (emoji or icon key)",
+  "trigger_type": "string",
+  "earned": "bool",
+  "earned_at": "datetime | null"
 }
 ```
 
@@ -142,15 +346,13 @@ version: 1.0.0
 
 ## Compliance Checklist
 
-> Architect completes before marking this document APPROVED.
-
-- [ ] Every feature in PRJ-001 §3 (Core Features) maps to at least one route
-- [ ] All routes have documented: method, path, auth requirement, request shape, all response codes
-- [ ] All DTOs defined in the DTO Reference section
-- [ ] No route added without explicit Architect/Human approval
-- [ ] Response codes agree with CON-001 §3 (Status Code Table)
-- [ ] No content from a previous project remains — all sections are specific to this project
-- [ ] Amendment log started
+- [x] Every feature in PRJ-001 §3–§5 maps to at least one route
+- [x] All routes have: method, path, auth requirement, request shape, all response codes
+- [x] All DTOs defined in the DTO Reference section
+- [x] No route added without Architect approval (SPR-009-MB additions registered here)
+- [x] Response codes agree with CON-001 §3 (Status Code Table)
+- [x] No content from template placeholder remains
+- [x] Amendment log current
 
 ---
 

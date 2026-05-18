@@ -22,7 +22,7 @@
 
 schema_version: "1.0.0"
 project: "Task Nibbles"
-generated: "2026-05-14"
+generated: "2026-05-18"
 
 # ── Area Definitions ──────────────────────────────────────────────────────────
 areas:
@@ -559,18 +559,18 @@ documents:
       convention (Pattern A — no multipart to API), CORS, and versioning policy.
 
   - id: CON-002
-    path: 30_CONTRACTS/CON-002_API_Contract.md
-    title: "API Contract — Task Nibbles"
+    path: 20_BLUEPRINTS/CON-002_API_Contract.md
+    title: "API Contract — Task Nibbles REST API"
     type: reference
     status: APPROVED
     tags: [api, contract, routes, schema]
     agents: [coder, tester]
     summary: >
-      Complete request/response schemas for all 22 API routes. Auth (7 routes),
-      health (1), tasks (7 including complete + sort-order), attachments (5),
-      gamification (2). Includes gamification_delta response on task completion,
-      all 14 badges in GET /gamification/badges, and route summary table
-      mapped to BCK-001 backlog items.
+      Full REST API contract for all 28 routes across 6 domains. Auth (8 routes
+      incl. change-password added SPR-009-MB), Users (2 routes incl. display_name),
+      Tasks (7 routes), Attachments (5 routes), Gamification (3 routes incl.
+      PATCH /companion added SPR-009-MB), Health (1 route). Complete DTO reference
+      for all request/response shapes. Version 2.0.0 (2026-05-18).
 
 # ── Sprint Documents ──────────────────────────────────────────────────────────
 
@@ -726,3 +726,110 @@ documents:
       reconciliation), sprint dependency graph, human gating actions, and
       developer hand-off briefs for SPR-002-BE and SPR-001-MB.
 
+  - id: SPR-007-BE
+    path: 05_PROJECT/SPR-007-BE_Gamification_Nightly_Cron.md
+    title: "Sprint 7 — Gamification Nightly Cron"
+    type: sprint
+    status: CLOSED
+    tags: [sprint, backend, gamification, cron]
+    agents: [coder]
+    summary: >
+      Backend Sprint 7: nightly gamification decay job (ApplyNightlyDecay +
+      ApplyOverduePenalty) registered at 00:30 UTC in go-cron scheduler.
+      GamificationServicer interface in jobs package. Non-fatal error handling.
+
+  - id: SPR-008-MB
+    path: 05_PROJECT/SPR-008-MB_Mobile_UX_Hardening.md
+    title: "Sprint 8 — Mobile UX Hardening"
+    type: sprint
+    status: CLOSED
+    tags: [sprint, mobile, ux, auth, permissions]
+    agents: [coder-mobile]
+    summary: >
+      Mobile Sprint 8: session restore on cold launch, runtime permissions
+      (camera/gallery/notifications via permission_handler), first-task badge,
+      Edit Profile screen (timezone IANA picker), full Settings screen.
+
+  - id: SPR-009-MB
+    path: 05_PROJECT/SPR-009-MB_Companion_Selection_Profile_Expansion.md
+    title: "Sprint 9 — Companion Selection & Profile Expansion"
+    type: sprint
+    status: CLOSED
+    tags: [sprint, mobile, backend, gamification, companion, profile]
+    agents: [coder-mobile, coder-backend]
+    summary: >
+      Full-stack Sprint 9: PATCH /gamification/companion, POST /auth/change-password,
+      display_name on PATCH /users/me, migrations 0015+0016. Mobile: CompanionPickerScreen,
+      SpriteA/B + TreeA/B (5-state CustomPainter), HeroSection rewrite,
+      EditProfileScreen expansion, Remember Me, pull-to-refresh fix. Deployed 2026-05-18.
+
+  - id: SPR-010-MB
+    path: 05_PROJECT/SPR-010-MB_Production_Polish.md
+    title: "Sprint 10 — Mobile Production Polish"
+    type: sprint
+    status: READY
+    tags: [sprint, mobile, polish, notifications, branding]
+    agents: [coder-mobile]
+    summary: >
+      Final MVP sprint: push notification permission (permission_handler only),
+      enhanced empty states, skeleton loader, app icon + native splash branding,
+      production APK v1.3 + S3 upload.
+
+  - id: PLN-002
+    path: 05_PROJECT/PLN-002_Sprint_Planning_2026-05-15_Session2.md
+    title: "Architect Sprint Planning — 2026-05-15 Session 2"
+    type: planning
+    status: APPROVED
+    tags: [project-management, sprint-planning, architect]
+    agents: [architect]
+    summary: >
+      Post-staging-deploy planning. SPR-007-BE and SPR-004-MB run in parallel;
+      SPR-005-MB sequential after. Production deploy human-gated. Hand-off briefs
+      for all three remaining MVP sprints.
+
+  - id: PLN-003
+    path: 05_PROJECT/PLN-003_Sprint_Planning_2026-05-17.md
+    title: "Architect Sprint Planning — 2026-05-17"
+    type: planning
+    status: APPROVED
+    tags: [project-management, sprint-planning, architect]
+    agents: [architect]
+    summary: >
+      Post-SPR-009-MB planning. Production deployed. SPR-010-MB ready to assign.
+      CON-002 updated (A-053). MANIFEST updated (A-055). SPR-010-MB sprint doc
+      created (A-054). Post-MVP: SPR-008-BE (push notification backend) in reserve.
+
+  - id: AUD-011-BE
+    path: 05_PROJECT/AUD-011-BE_Audit_SPR-007-BE.md
+    title: "Architect Audit — SPR-007-BE"
+    type: audit
+    status: APPROVED
+    tags: [audit, backend, sprint, gamification, cron]
+    agents: [architect]
+    summary: >
+      Audit of Backend Sprint 7 (Nightly Cron). Job registration, decay/penalty
+      separation, non-fatal error handling, and interface compliance verified.
+
+  - id: AUD-013-MB
+    path: 05_PROJECT/AUD-013-MB_Audit_SPR-008-MB.md
+    title: "Architect Audit — SPR-008-MB"
+    type: audit
+    status: APPROVED_WITH_NOTES
+    tags: [audit, mobile, sprint, ux, permissions]
+    agents: [architect]
+    summary: >
+      Audit of Mobile Sprint 8 (UX Hardening). All exit criteria pass. Three
+      minor items (spinner, remember me, display name) deferred and resolved in
+      SPR-009-MB.
+
+  - id: AUD-014-MB
+    path: 05_PROJECT/AUD-014-MB_Audit_SPR-009-MB.md
+    title: "Architect Audit — SPR-009-MB"
+    type: audit
+    status: APPROVED_WITH_NOTES
+    tags: [audit, mobile, backend, sprint, gamification, companion]
+    agents: [architect]
+    summary: >
+      Audit of Sprint 9 (Companion + Profile). All exit criteria pass. Critical
+      CI failure caught and fixed pre-deploy (UpdateCompanion mock stubs). CON-002
+      and MANIFEST updated. Production live 2026-05-18.

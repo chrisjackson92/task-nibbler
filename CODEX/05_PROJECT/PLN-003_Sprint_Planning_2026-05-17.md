@@ -26,9 +26,9 @@ version: 1.0.0
 |:-----|:------|
 | Staging URL | `https://task-nibbles-api-staging.fly.dev` ✅ live |
 | CI/CD | `main` → production (requires reviewer approval) ✅ |
-| Migrations applied | 0001–0016 (staging) |
-| Production deploy | ⏳ Pending Human approval (SPR-009-MB CI run) |
-| Latest APK | `v1.2` (S3) — `v1.3` pending CI completion |
+| Migrations applied | 0001–0016 ✅ production |
+| Production deploy | ✅ **Deployed 2026-05-18** — SPR-009-MB backend live |
+| Latest APK | `v1.2` (S3) — `v1.3` pending SPR-010-MB |
 
 ### 1.2 Sprint Status Ledger
 
@@ -47,7 +47,7 @@ version: 1.0.0
 | SPR-004-MB | Mobile | ✅ CLOSED | AUD-010-MB |
 | SPR-005-MB | Mobile | ✅ CLOSED | AUD-012-MB |
 | **SPR-008-MB** | Mobile | ✅ CLOSED | **AUD-013-MB** |
-| **SPR-009-MB** | Mobile + BE | ✅ CLOSED | **AUD-014-MB** |
+| **SPR-009-MB** | Mobile + BE | ✅ CLOSED + **DEPLOYED TO PROD** | **AUD-014-MB** |
 | **SPR-010-MB** | Mobile | 🟢 READY TO ASSIGN | — |
 
 ### 1.3 Remaining Backlog Items (MVP + Post-MVP)

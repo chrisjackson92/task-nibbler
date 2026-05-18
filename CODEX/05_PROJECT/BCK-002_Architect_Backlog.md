@@ -124,7 +124,7 @@ version: 1.1.0
 | A-043 | Promote staging to production (post all audits) | ARCH-DEPLOY | All audits pass | Tag v1.0.0 on main | ⏳ Pending Human approval |
 | A-044 | Configure custom domain + TLS (api.tasknibbles.com) | ARCH-DEPLOY | A-043 | Certificate issued, DNS verified | [ ] Open |
 | A-053 | Update CON-002 with 3 new SPR-009-MB endpoints | ARCH-CODEX | SPR-009-MB audit | CON-002 current | 🔴 Open (P0) |
-| A-054 | Create SPR-010-MB sprint doc | ARCH-CODEX | PLN-003 | SPR-010-MB.md | 🟡 Open |
+| A-054 | Create SPR-010-MB sprint doc | ARCH-CODEX | PLN-003 | SPR-010-MB.md | ✅ Done |
 | A-055 | MANIFEST.yaml update (SPR-008, SPR-009, AUD-013, AUD-014, PLN-003) | ARCH-CODEX | All docs created | MANIFEST current | 🟡 Open |
 
 ---

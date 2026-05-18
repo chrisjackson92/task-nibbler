@@ -1,7 +1,7 @@
 name: task_nibbles
 description: Task Nibbles — your gamified task manager
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.3.0+3
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -61,10 +61,34 @@ dev_dependencies:
   hive_generator: ^2.0.1
   build_runner: ^2.4.9
 
+  # App icon generation (M-057, SPR-010-MB)
+  flutter_launcher_icons: ^0.13.1
+
+  # Native splash screen generation (M-057, SPR-010-MB)
+  flutter_native_splash: ^2.4.0
+
+# ── App icon config (run: dart run flutter_launcher_icons) ─────────────────────
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#1B5E20"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  min_sdk_android: 21
+
+# ── Native splash config (run: dart run flutter_native_splash:create) ──────────
+flutter_native_splash:
+  color: "#1B5E20"
+  image: assets/icon/app_icon.png
+  android_12:
+    color: "#1B5E20"
+    image: assets/icon/app_icon.png
+
 flutter:
   uses-material-design: true
 
   assets:
     - assets/animations/
+    - assets/icon/
 
   fonts: []

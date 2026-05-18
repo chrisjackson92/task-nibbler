@@ -129,8 +129,11 @@ class GamificationDetailScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                 ],
 
-                // Badge shelf (all 14 badges)
-                BadgeShelfWidget(badges: badges),
+                // Badge shelf (all 14 badges) — or empty state (M-055)
+                if (badges.isEmpty)
+                  _BadgeShelfEmptyState()
+                else
+                  BadgeShelfWidget(badges: badges),
                 const SizedBox(height: 32),
               ],
             ),
@@ -279,6 +282,28 @@ class _GraceCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Badge shelf empty state (M-055) ───────────────────────────────────────────
+
+/// Shown in place of [BadgeShelfWidget] when [badges] is empty (M-055).
+class _BadgeShelfEmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Text(
+          'Complete tasks to earn badges 🏅',
+          key: const Key('badge_shelf_empty_state'),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+          textAlign: TextAlign.center,
+        ),
       ),
     );
   }

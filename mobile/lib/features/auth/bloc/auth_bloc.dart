@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/cache/task_cache.dart';
+import '../../../core/notifications/notification_permission_service.dart';
 import '../data/auth_repository.dart';
 import '../../../core/api/models/auth_models.dart';
 import 'auth_state.dart';
@@ -91,6 +92,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         LoginRequest(email: event.email, password: event.password),
       );
       emit(AuthAuthenticated(user: response.user));
+      // M-054: request notification permission after successful login (fire & forget).
+      NotificationPermissionService.requestIfNeeded();
     } on DioException catch (e) {
       emit(AuthError(AuthRepository.mapError(e)));
     }
@@ -106,6 +109,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         RegisterRequest(email: event.email, password: event.password),
       );
       emit(AuthAuthenticated(user: response.user));
+      // M-054: request notification permission after successful register (fire & forget).
+      NotificationPermissionService.requestIfNeeded();
     } on DioException catch (e) {
       emit(AuthError(AuthRepository.mapError(e)));
     }

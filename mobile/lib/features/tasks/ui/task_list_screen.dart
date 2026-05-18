@@ -6,6 +6,7 @@ import '../../../core/api/models/task_models.dart';
 import '../../../core/connectivity/connectivity_cubit.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/offline_banner.dart';
+import '../../../core/widgets/skeleton_loader.dart';
 import '../../gamification/bloc/gamification_cubit.dart';
 import '../../gamification/ui/widgets/badge_award_listener.dart';
 import '../bloc/task_list_bloc.dart';
@@ -117,7 +118,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         return switch (state) {
                           TaskListInitial() || TaskListLoading() =>
                             const SliverFillRemaining(
-                              child: Center(child: CircularProgressIndicator()),
+                              hasScrollBody: false,
+                              child: TaskListSkeleton(),
                             ),
                           TaskListError() => SliverFillRemaining(
                               child: _EmptyOrErrorView(
@@ -202,39 +204,157 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
 // ── Empty / error views ───────────────────────────────────────────────────────
 
-class _EmptyTasksView extends StatelessWidget {
+// ── Enhanced empty state (M-055) ────────────────────────────────────────────
+
+class _EmptyTasksView extends StatefulWidget {
   const _EmptyTasksView();
 
   @override
+  State<_EmptyTasksView> createState() => _EmptyTasksViewState();
+}
+
+class _EmptyTasksViewState extends State<_EmptyTasksView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..forward();
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.05), // 20px ≈ 5% of typical screen
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.check_box_outline_blank_rounded,
-            size: 64,
-            color: theme.colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No tasks yet',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap + to add your first task',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.outline,
-            ),
-          ),
-        ],
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: _EmptyTasksContent(),
       ),
     );
   }
+}
+
+class _EmptyTasksContent extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Clipboard illustration (CustomPaint)
+            SizedBox(
+              width: 100,
+              height: 110,
+              child: CustomPaint(
+                key: const Key('empty_tasks_illustration'),
+                painter: _ClipboardPainter(color: primary),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Nothing here yet',
+              key: const Key('empty_tasks_headline'),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap + to add your first task',
+              key: const Key('empty_tasks_subtext'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              key: const Key('empty_tasks_add_button'),
+              onPressed: () => context.push(AppRoutes.taskCreate),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add Task'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// CustomPainter — clipboard with a checkmark, drawn in [color].
+class _ClipboardPainter extends CustomPainter {
+  const _ClipboardPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withOpacity(0.15)
+      ..style = PaintingStyle.fill;
+    final outline = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // Clipboard body
+    final bodyRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(8, 20, size.width - 16, size.height - 24),
+      const Radius.circular(10),
+    );
+    canvas.drawRRect(bodyRect, paint);
+    canvas.drawRRect(bodyRect, outline..style = PaintingStyle.stroke);
+
+    // Clipboard clip tab
+    final clipRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.width / 2 - 18, 12, 36, 20),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(clipRect, Paint()..color = color.withOpacity(0.25));
+    canvas.drawRRect(clipRect, outline);
+
+    // Checkmark
+    final checkPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final cx = size.width / 2;
+    final cy = size.height / 2 + 12;
+    final path = Path()
+      ..moveTo(cx - 18, cy)
+      ..lineTo(cx - 6, cy + 12)
+      ..lineTo(cx + 18, cy - 14);
+    canvas.drawPath(path, checkPaint);
+  }
+
+  @override
+  bool shouldRepaint(_ClipboardPainter old) => old.color != color;
 }
 
 class _EmptyOrErrorView extends StatelessWidget {
